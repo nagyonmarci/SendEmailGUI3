@@ -3,6 +3,7 @@ import sys
 import subprocess
 import tkinter as tk
 from tkinter import filedialog
+import i18n
 
 IS_MAC = sys.platform == 'darwin'
 
@@ -45,6 +46,7 @@ def get_settings(table_filename, attachment_dir, sheet_name_entry, subject_entry
         'sheet_name': sheet_name_entry.get(),
         'subject': subject_entry.get(),
         'html_body': html_body_text.get_html() if hasattr(html_body_text, 'get_html') else html_body_text.get("1.0", "end-1c"),
+        'language': i18n.get_lang(),
     }
 
 
@@ -58,7 +60,7 @@ def save_settings(table_filename, attachment_dir, sheet_name_entry, subject_entr
 def save_settings_as(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text):
     global current_settings_file
     if IS_MAC:
-        filepath = _mac_ask_save_file("Mentés másként")
+        filepath = _mac_ask_save_file(i18n.t("fdlg_settings_save"))
         if filepath and not filepath.endswith(".json"):
             filepath += ".json"
     else:
@@ -85,10 +87,10 @@ def load_settings(filepath=DEFAULT_SETTINGS_FILE):
 def load_settings_gui():
     global current_settings_file
     if IS_MAC:
-        filepath = _mac_ask_file("Válassza ki a beállítások fájlt", ["json"])
+        filepath = _mac_ask_file(i18n.t("fdlg_settings_open"), ["json"])
     else:
         filepath = filedialog.askopenfilename(
-            title="Válassza ki a beállítások fájlt",
+            title=i18n.t("fdlg_settings_open"),
             filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
         )
     if filepath:
@@ -97,6 +99,8 @@ def load_settings_gui():
 
 
 def apply_settings(settings, table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text):
+    if 'language' in settings:
+        i18n.set_lang(settings['language'])
     table_filename.set(settings.get('table_filename', ''))
     attachment_dir.set(settings.get('attachment_dir', ''))
     sheet_name_entry.delete(0, tk.END)

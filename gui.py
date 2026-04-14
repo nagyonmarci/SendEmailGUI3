@@ -5,6 +5,7 @@ import tkinter.font as tkfont
 from tkinter import filedialog, VERTICAL
 from tkinter import ttk
 import threading
+import i18n
 import settings
 import email_generation
 
@@ -109,17 +110,9 @@ class TableWidget(tk.Frame):
                     self.cells[r][c].insert(0, val)
 
 
-# ── WYSIWYG Rich Text Editor ─────────────────────────────────────────────────
+# ── WYSIWYG Rich Text Editor ──────────────────────────────────────────────────
 
 class RichTextEditor(tk.Text):
-    """tk.Text subclass with WYSIWYG HTML editing.
-
-    Bold / italic / underline are displayed visually using widget tags.
-    Tables are embedded as editable TableWidget frames.
-    Raw unknown HTML is shown in grey monospace.
-    get_html() / set_html() handle serialisation to/from HTML strings.
-    """
-
     _TAGS = {
         "bold":      ("<b>",  "</b>"),
         "italic":    ("<i>",  "</i>"),
@@ -135,9 +128,7 @@ class RichTextEditor(tk.Text):
         self.tag_configure("italic",    font=(family, size, "italic"))
         self.tag_configure("underline", underline=True)
         self.tag_configure("raw_html",  foreground="#aaaaaa", font=("Courier", 9))
-        self._embedded_tables = {}   # str(widget) → TableWidget
-
-    # ── Formatting ────────────────────────────────────────────────────────
+        self._embedded_tables = {}
 
     def toggle_format(self, tag):
         try:
@@ -150,22 +141,16 @@ class RichTextEditor(tk.Text):
         else:
             self.tag_add(tag, sel_first, sel_last)
 
-    # ── Raw HTML (grey monospace, for unknown tags) ───────────────────────
-
     def insert_raw(self, html_text):
         start = self.index(tk.INSERT)
         self.insert(tk.INSERT, html_text)
         self.tag_add("raw_html", start, self.index(tk.INSERT))
-
-    # ── Table widget ──────────────────────────────────────────────────────
 
     def insert_table_widget(self, rows, cols):
         tw = TableWidget(self, rows, cols)
         self.window_create(tk.INSERT, window=tw)
         self._embedded_tables[str(tw)] = tw
         self.insert(tk.INSERT, "\n")
-
-    # ── Serialisation ─────────────────────────────────────────────────────
 
     def get_html(self):
         result = []
@@ -190,7 +175,6 @@ class RichTextEditor(tk.Text):
         return "".join(result)
 
     def set_html(self, html):
-        # Destroy existing embedded table widgets
         for tw in self._embedded_tables.values():
             try:
                 tw.destroy()
@@ -238,8 +222,8 @@ class RichTextEditor(tk.Text):
                 elif name == "table":
                     end_idx = html.lower().find("</table>", i)
                     if end_idx != -1:
-                        full_table  = full + html[i:end_idx + 8]
-                        table_data  = _parse_table_html(full_table)
+                        full_table = full + html[i:end_idx + 8]
+                        table_data = _parse_table_html(full_table)
                         rows = len(table_data)
                         cols = max((len(r) for r in table_data), default=1) if rows else 0
                         if rows > 0 and cols > 0:
@@ -269,15 +253,15 @@ class RichTextEditor(tk.Text):
 
 def insert_table(html_body_text):
     dialog = tk.Toplevel()
-    dialog.title("Táblázat beszúrása")
+    dialog.title(i18n.t("dlg_table_title"))
     dialog.resizable(False, False)
     dialog.grab_set()
 
-    ttk.Label(dialog, text="Sorok száma:").grid(row=0, column=0, padx=14, pady=8, sticky="w")
+    ttk.Label(dialog, text=i18n.t("dlg_rows")).grid(row=0, column=0, padx=14, pady=8, sticky="w")
     rows_var = tk.IntVar(value=3)
     ttk.Spinbox(dialog, from_=1, to=50, textvariable=rows_var, width=6).grid(row=0, column=1, padx=14, pady=8)
 
-    ttk.Label(dialog, text="Oszlopok száma:").grid(row=1, column=0, padx=14, pady=8, sticky="w")
+    ttk.Label(dialog, text=i18n.t("dlg_cols")).grid(row=1, column=0, padx=14, pady=8, sticky="w")
     cols_var = tk.IntVar(value=3)
     ttk.Spinbox(dialog, from_=1, to=20, textvariable=cols_var, width=6).grid(row=1, column=1, padx=14, pady=8)
 
@@ -302,7 +286,7 @@ def insert_table(html_body_text):
                 html_body_text.insert(tk.INSERT, table_html)
         dialog.destroy()
 
-    ttk.Button(dialog, text="Beszúrás", command=on_ok).grid(row=2, column=0, columnspan=2, pady=12)
+    ttk.Button(dialog, text=i18n.t("dlg_insert"), command=on_ok).grid(row=2, column=0, columnspan=2, pady=12)
     dialog.bind("<Return>", lambda e: on_ok())
 
 
@@ -318,13 +302,13 @@ def select_excel_file():
     if IS_MAC:
         r = subprocess.run(
             ["osascript", "-e",
-             'set f to choose file with prompt "Válassza ki az Excel fájlt" of type {"xlsx","xls"}\nreturn POSIX path of f'],
+             f'set f to choose file with prompt "{i18n.t("fdlg_excel")}" of type {{"xlsx","xls"}}\nreturn POSIX path of f'],
             capture_output=True, text=True,
         )
         filepath = r.stdout.strip() if r.returncode == 0 else None
     else:
         filepath = filedialog.askopenfilename(
-            title="Válassza ki a cifzetteket tartalmazó Excel fájlt",
+            title=i18n.t("fdlg_excel"),
             filetypes=[("Excel files", "*.xlsx;*.xls")],
         )
     if filepath:
@@ -335,12 +319,12 @@ def select_attachment_dir():
     if IS_MAC:
         r = subprocess.run(
             ["osascript", "-e",
-             'set d to choose folder with prompt "Válassza ki a mellékletek mappáját"\nreturn POSIX path of d'],
+             f'set d to choose folder with prompt "{i18n.t("fdlg_attachments")}"\nreturn POSIX path of d'],
             capture_output=True, text=True,
         )
         directory = r.stdout.strip().rstrip("/") if r.returncode == 0 else None
     else:
-        directory = filedialog.askdirectory(title="Válassza ki a mellékletek mappáját")
+        directory = filedialog.askdirectory(title=i18n.t("fdlg_attachments"))
     if directory:
         attachment_dir.set(directory)
 
@@ -351,7 +335,6 @@ def create_gui():
     global table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text
 
     root = tk.Tk()
-    root.title("Tömeges emailküldés")
     root.geometry("900x740")
     root.eval('tk::PlaceWindow . center')
     root.configure(bg="#f2f2f7")
@@ -372,7 +355,12 @@ def create_gui():
     attachment_dir = tk.StringVar()
     status_var     = tk.StringVar(value=settings.current_settings_file)
 
-    # Action helpers (widgets defined later; closures access globals)
+    # Widget references for language updates: i18n_key → widget
+    _w           = {}
+    _browse_btns = []
+    _menubar     = [None]   # mutable container so nested functions can replace it
+
+    # ── Action helpers ────────────────────────────────────────────────────
     def save_cmd():
         settings.save_settings(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
         status_var.set(settings.current_settings_file)
@@ -385,6 +373,7 @@ def create_gui():
         data = settings.load_settings_gui()
         if data is not None:
             settings.apply_settings(data, table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
+            apply_language(i18n.get_lang())
             status_var.set(settings.current_settings_file)
 
     def reset_cmd():
@@ -393,51 +382,61 @@ def create_gui():
     def generate_cmd():
         start_email_generation_thread(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
 
-    # ── Menu bar ─────────────────────────────────────────────────────────
-    mod     = "Cmd"     if IS_MAC else "Ctrl"
-    mod_key = "Command" if IS_MAC else "Control"
+    # ── Menu builder ──────────────────────────────────────────────────────
+    def _build_menubar():
+        if _menubar[0] is not None:
+            _menubar[0].destroy()
 
-    menubar = tk.Menu(root)
+        mod     = "Cmd"     if IS_MAC else "Ctrl"
+        menubar = tk.Menu(root)
 
-    # Fájl
-    file_menu = tk.Menu(menubar, tearoff=0)
-    file_menu.add_command(label="Mentés",               accelerator=f"{mod}+S",      command=save_cmd)
-    file_menu.add_command(label="Mentés másként…",                                   command=save_as_cmd)
-    file_menu.add_command(label="Megnyitás…",           accelerator=f"{mod}+O",      command=load_cmd)
-    file_menu.add_command(label="Alaphelyzetbe állítás",                             command=reset_cmd)
-    file_menu.add_separator()
-    file_menu.add_command(label="Kilépés",              command=root.quit)
-    menubar.add_cascade(label="Fájl", menu=file_menu)
+        # Fájl / File
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label=i18n.t("menu_save"),    accelerator=f"{mod}+S", command=save_cmd)
+        file_menu.add_command(label=i18n.t("menu_save_as"),                         command=save_as_cmd)
+        file_menu.add_command(label=i18n.t("menu_open"),    accelerator=f"{mod}+O", command=load_cmd)
+        file_menu.add_command(label=i18n.t("menu_reset"),                           command=reset_cmd)
+        file_menu.add_separator()
+        lang_menu = tk.Menu(file_menu, tearoff=0)
+        lang_menu.add_command(label="Magyar",  command=lambda: apply_language("hu"))
+        lang_menu.add_command(label="English", command=lambda: apply_language("en"))
+        file_menu.add_cascade(label=i18n.t("menu_language"), menu=lang_menu)
+        file_menu.add_separator()
+        file_menu.add_command(label=i18n.t("menu_quit"), command=root.quit)
+        menubar.add_cascade(label=i18n.t("menu_file"), menu=file_menu)
 
-    # Szerkesztés
-    edit_menu = tk.Menu(menubar, tearoff=0)
-    edit_menu.add_command(label="Félkövér",             accelerator=f"{mod}+B",
-                          command=lambda: html_body_text.toggle_format("bold"))
-    edit_menu.add_command(label="Dőlt",                 accelerator=f"{mod}+I",
-                          command=lambda: html_body_text.toggle_format("italic"))
-    edit_menu.add_command(label="Aláhúzás",             accelerator=f"{mod}+U",
-                          command=lambda: html_body_text.toggle_format("underline"))
-    edit_menu.add_separator()
-    edit_menu.add_command(label="Táblázat beszúrása…",  command=lambda: insert_table(html_body_text))
-    menubar.add_cascade(label="Szerkesztés", menu=edit_menu)
+        # Szerkesztés / Edit
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label=i18n.t("menu_bold"),         accelerator=f"{mod}+B",
+                              command=lambda: html_body_text.toggle_format("bold"))
+        edit_menu.add_command(label=i18n.t("menu_italic"),       accelerator=f"{mod}+I",
+                              command=lambda: html_body_text.toggle_format("italic"))
+        edit_menu.add_command(label=i18n.t("menu_underline"),    accelerator=f"{mod}+U",
+                              command=lambda: html_body_text.toggle_format("underline"))
+        edit_menu.add_separator()
+        edit_menu.add_command(label=i18n.t("menu_insert_table"), command=lambda: insert_table(html_body_text))
+        menubar.add_cascade(label=i18n.t("menu_edit"), menu=edit_menu)
 
-    # Email
-    email_menu = tk.Menu(menubar, tearoff=0)
-    email_menu.add_command(label="Generálás indítása",  accelerator=f"{mod}+Return", command=generate_cmd)
-    email_menu.add_command(label="Generálás leállítása",                             command=email_generation.stop_email_generation)
-    email_menu.add_separator()
-    email_menu.add_command(label="Ablakok bezárása",                                 command=email_generation.close_all_open_email_windows)
-    menubar.add_cascade(label="Email", menu=email_menu)
+        # Email
+        email_menu = tk.Menu(menubar, tearoff=0)
+        email_menu.add_command(label=i18n.t("menu_generate"),      accelerator=f"{mod}+Return", command=generate_cmd)
+        email_menu.add_command(label=i18n.t("menu_stop"),                                       command=email_generation.stop_email_generation)
+        email_menu.add_separator()
+        email_menu.add_command(label=i18n.t("menu_close_windows"),                              command=email_generation.close_all_open_email_windows)
+        menubar.add_cascade(label=i18n.t("menu_email"), menu=email_menu)
 
-    root.config(menu=menubar)
+        root.config(menu=menubar)
+        _menubar[0] = menubar
 
-    # Keyboard shortcuts
-    root.bind(f"<{mod_key}-b>",      lambda e: html_body_text.toggle_format("bold"))
-    root.bind(f"<{mod_key}-i>",      lambda e: html_body_text.toggle_format("italic"))
-    root.bind(f"<{mod_key}-u>",      lambda e: html_body_text.toggle_format("underline"))
-    root.bind(f"<{mod_key}-s>",      lambda e: save_cmd())
-    root.bind(f"<{mod_key}-o>",      lambda e: load_cmd())
-    root.bind(f"<{mod_key}-Return>", lambda e: generate_cmd())
+    # ── Language switcher ─────────────────────────────────────────────────
+    def apply_language(lang):
+        i18n.set_lang(lang)
+        root.title(i18n.t("window_title"))
+        for key, widget in _w.items():
+            widget.config(text=i18n.t(key))
+        for btn in _browse_btns:
+            btn.config(text=i18n.t("btn_browse"))
+        _build_menubar()
 
     # ── Main container ────────────────────────────────────────────────────
     outer = ttk.Frame(root, padding=(18, 14))
@@ -446,33 +445,36 @@ def create_gui():
     outer.columnconfigure(0, weight=1)
 
     # ── Fields section ────────────────────────────────────────────────────
-    fields = ttk.LabelFrame(outer, text="  Adatok  ", padding=(12, 8))
-    fields.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-    fields.columnconfigure(1, weight=1)
+    fields_lf = ttk.LabelFrame(outer, text=i18n.t("section_data"), padding=(12, 8))
+    fields_lf.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+    fields_lf.columnconfigure(1, weight=1)
+    _w["section_data"] = fields_lf
 
-    def _field_row(parent, row, label, var=None, browse_cmd=None):
-        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=(0, 10), pady=4)
-        if var is not None:
-            e = ttk.Entry(parent, textvariable=var, state='readonly')
-        else:
-            e = ttk.Entry(parent)
+    def _field_row(parent, row, lbl_key, var=None, browse_cmd=None):
+        lbl = ttk.Label(parent, text=i18n.t(lbl_key))
+        lbl.grid(row=row, column=0, sticky="w", padx=(0, 10), pady=4)
+        _w[lbl_key] = lbl
+        e = ttk.Entry(parent, textvariable=var, state='readonly') if var is not None else ttk.Entry(parent)
         e.grid(row=row, column=1, sticky="ew", pady=4)
         if browse_cmd:
-            ttk.Button(parent, text="Tallózás…", command=browse_cmd).grid(row=row, column=2, padx=(8, 0), pady=4)
+            btn = ttk.Button(parent, text=i18n.t("btn_browse"), command=browse_cmd)
+            btn.grid(row=row, column=2, padx=(8, 0), pady=4)
+            _browse_btns.append(btn)
         return e
 
-    _field_row(fields, 0, "Excel fájl:",          var=table_filename,  browse_cmd=select_excel_file)
-    _field_row(fields, 1, "Mellékletek mappája:",  var=attachment_dir,  browse_cmd=select_attachment_dir)
-    sheet_name_entry = _field_row(fields, 2, "Munkalap neve:")
-    subject_entry    = _field_row(fields, 3, "Email tárgy:")
+    _field_row(fields_lf, 0, "label_excel",      var=table_filename, browse_cmd=select_excel_file)
+    _field_row(fields_lf, 1, "label_attachments", var=attachment_dir, browse_cmd=select_attachment_dir)
+    sheet_name_entry = _field_row(fields_lf, 2, "label_sheet")
+    subject_entry    = _field_row(fields_lf, 3, "label_subject")
 
     # ── Editor section ────────────────────────────────────────────────────
-    editor_lf = ttk.LabelFrame(outer, text="  Email törzs  ", padding=(12, 8))
+    editor_lf = ttk.LabelFrame(outer, text=i18n.t("section_body"), padding=(12, 8))
     editor_lf.grid(row=1, column=0, sticky="nsew", pady=(0, 10))
     editor_lf.rowconfigure(1, weight=1)
     editor_lf.columnconfigure(0, weight=1)
+    _w["section_body"] = editor_lf
 
-    # Formatting toolbar — sits directly above the editor
+    # Formatting toolbar
     toolbar = tk.Frame(editor_lf, bg="#e4e4e9", bd=0)
     toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
 
@@ -493,8 +495,10 @@ def create_gui():
 
     tk.Frame(toolbar, bg="#b0b0b8", width=1).pack(side="left", fill="y", padx=8, pady=4)
 
-    tk.Button(toolbar, text="⊞  Táblázat", font=normal_font,
-              command=lambda: insert_table(html_body_text),              **_BTN).pack(side="left", pady=3)
+    tbl_btn = tk.Button(toolbar, text=i18n.t("toolbar_table"), font=normal_font,
+                        command=lambda: insert_table(html_body_text), **_BTN)
+    tbl_btn.pack(side="left", pady=3)
+    _w["toolbar_table"] = tbl_btn
 
     # Rich text editor + scrollbar
     html_body_text = RichTextEditor(editor_lf, wrap='word', font=('Verdana', 10),
@@ -511,12 +515,17 @@ def create_gui():
     actions.grid(row=2, column=0, sticky="ew")
     actions.columnconfigure((0, 1, 2), weight=1)
 
-    ttk.Button(actions, text="▶  Email-ek generálása", style="Primary.TButton",
-               command=generate_cmd).grid(row=0, column=0, sticky="ew", padx=(0, 5), ipady=5)
-    ttk.Button(actions, text="⏹  Leállítás",
-               command=email_generation.stop_email_generation).grid(row=0, column=1, sticky="ew", padx=2, ipady=5)
-    ttk.Button(actions, text="✕  Ablakok bezárása",
-               command=email_generation.close_all_open_email_windows).grid(row=0, column=2, sticky="ew", padx=(5, 0), ipady=5)
+    btn_gen = ttk.Button(actions, text=i18n.t("btn_generate"), style="Primary.TButton", command=generate_cmd)
+    btn_gen.grid(row=0, column=0, sticky="ew", padx=(0, 5), ipady=5)
+    _w["btn_generate"] = btn_gen
+
+    btn_stp = ttk.Button(actions, text=i18n.t("btn_stop"), command=email_generation.stop_email_generation)
+    btn_stp.grid(row=0, column=1, sticky="ew", padx=2, ipady=5)
+    _w["btn_stop"] = btn_stp
+
+    btn_cls = ttk.Button(actions, text=i18n.t("btn_close_windows"), command=email_generation.close_all_open_email_windows)
+    btn_cls.grid(row=0, column=2, sticky="ew", padx=(5, 0), ipady=5)
+    _w["btn_close_windows"] = btn_cls
 
     # ── Status bar ────────────────────────────────────────────────────────
     status_bar = tk.Frame(root, bg="#dcdce4", height=24)
@@ -525,11 +534,20 @@ def create_gui():
              bg="#dcdce4", fg="#555566", font=("Verdana", 9),
              anchor="w").pack(side="left", padx=10, pady=2)
 
-    # ── Load saved settings ───────────────────────────────────────────────
-    settings.apply_settings(
-        settings.load_settings(), table_filename, attachment_dir,
-        sheet_name_entry, subject_entry, html_body_text,
-    )
+    # ── Keyboard shortcuts (language-independent) ─────────────────────────
+    mod_key = "Command" if IS_MAC else "Control"
+    root.bind(f"<{mod_key}-b>",      lambda e: html_body_text.toggle_format("bold"))
+    root.bind(f"<{mod_key}-i>",      lambda e: html_body_text.toggle_format("italic"))
+    root.bind(f"<{mod_key}-u>",      lambda e: html_body_text.toggle_format("underline"))
+    root.bind(f"<{mod_key}-s>",      lambda e: save_cmd())
+    root.bind(f"<{mod_key}-o>",      lambda e: load_cmd())
+    root.bind(f"<{mod_key}-Return>", lambda e: generate_cmd())
+
+    # ── Initial settings + language ───────────────────────────────────────
+    initial = settings.load_settings()
+    settings.apply_settings(initial, table_filename, attachment_dir,
+                            sheet_name_entry, subject_entry, html_body_text)
+    apply_language(i18n.get_lang())   # builds menubar, sets title and all labels
 
     root.mainloop()
 
