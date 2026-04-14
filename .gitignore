@@ -8,3 +8,7 @@ myenv/
 addressbook/
 attachments/
 configs/
+*.xlsx
+*.xls
+!settings.json
+*.json
