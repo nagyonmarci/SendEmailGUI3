@@ -29,7 +29,7 @@ _OUTLOOK_MAC_SCRIPT = """on run argv
     tell application "Microsoft Outlook"
         set newMsg to make new outgoing message
         set subject of newMsg to msgSubject
-        make new |html body| at newMsg with properties {content:htmlContent}
+        set content of newMsg to htmlContent
         make new to recipient at newMsg with properties {email address:{address:toAddr, name:toName}}
         if ccAddr is not "" then
             make new cc recipient at newMsg with properties {email address:{address:ccAddr}}
