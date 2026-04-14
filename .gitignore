@@ -5,3 +5,6 @@ build/
 dist/
 myenv/
 *.spec
+addressbook/
+attachments/
+configs/
