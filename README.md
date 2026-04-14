@@ -1,4 +1,4 @@
-# SendEmailGUI2
+# SendEmailGUI3
 
 Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS platformon egyaránt fut.
 
