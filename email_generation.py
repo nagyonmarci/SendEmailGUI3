@@ -119,7 +119,10 @@ def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_en
             recipient_email = sheet.cell(row=i, column=3).value
             cc_email = sheet.cell(row=i, column=4).value
             subject = subject_entry.get()
-            html_content = html_body_text.get("1.0", "end-1c").replace("\n", "<br>")
+            if hasattr(html_body_text, 'get_html'):
+                html_content = html_body_text.get_html()
+            else:
+                html_content = html_body_text.get("1.0", "end-1c").replace("\n", "<br>")
 
             if IS_WINDOWS:
                 mail = outlook.CreateItem(0)
