@@ -1,0 +1,4 @@
+openpyxl
+pyinstaller
+# Windows only:
+# pywin32

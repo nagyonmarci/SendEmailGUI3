@@ -53,4 +53,34 @@ main.py              # Belépési pont
 gui.py               # Felhasználói felület, WYSIWYG szerkesztő
 email_generation.py  # Email-generálás (Windows: COM, macOS: AppleScript)
 settings.py          # Beállítások mentése/betöltése
+i18n.py              # Fordítások (magyar / angol)
 ```
+
+## Build (önálló futtatható program)
+
+A build az adott platformon futtatandó — cross-compile nem lehetséges.
+
+### Előfeltételek
+
+```bash
+pip install pyinstaller openpyxl
+# Windows esetén még:
+pip install pywin32
+```
+
+### Build
+
+```bash
+pyinstaller SendEmailGUI3.spec
+```
+
+### Kimenet
+
+| Platform | Fájl |
+|----------|------|
+| Windows  | `dist\SendEmailGUI3.exe` |
+| macOS    | `dist/SendEmailGUI3.app` |
+
+A beállítások fájlja (`settings.json`) az apphoz tartozó felhasználói mappában jön létre:
+- **Windows**: `%APPDATA%\SendEmailGUI3\settings.json`
+- **macOS**: `~/Library/Application Support/SendEmailGUI3/settings.json`

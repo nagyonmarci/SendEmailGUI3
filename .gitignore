@@ -5,6 +5,7 @@ build/
 dist/
 myenv/
 *.spec
+!SendEmailGUI3.spec
 addressbook/
 attachments/
 configs/

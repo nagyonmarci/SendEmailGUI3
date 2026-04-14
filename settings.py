@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import subprocess
 import tkinter as tk
@@ -7,7 +8,22 @@ import i18n
 
 IS_MAC = sys.platform == 'darwin'
 
-DEFAULT_SETTINGS_FILE = 'settings.json'
+
+def _get_default_settings_path():
+    if getattr(sys, 'frozen', False):   # PyInstaller bundle
+        if sys.platform == 'win32':
+            base = os.environ.get('APPDATA', os.path.expanduser('~'))
+        elif sys.platform == 'darwin':
+            base = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support')
+        else:
+            base = os.path.expanduser('~')
+        app_dir = os.path.join(base, 'SendEmailGUI3')
+        os.makedirs(app_dir, exist_ok=True)
+        return os.path.join(app_dir, 'settings.json')
+    return 'settings.json'
+
+
+DEFAULT_SETTINGS_FILE = _get_default_settings_path()
 DEFAULT_HTML_BODY_FIRST = """<font style="font-family:Verdana" size="10pt" color="#184879">"""
 DEFAULT_HTML_BODY_LAST = """</font>"""
 
