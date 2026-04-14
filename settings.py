@@ -103,7 +103,7 @@ def load_settings(filepath=DEFAULT_SETTINGS_FILE):
 def load_settings_gui():
     global current_settings_file
     if IS_MAC:
-        filepath = _mac_ask_file(i18n.t("fdlg_settings_open"), ["json"])
+        filepath = _mac_ask_file(i18n.t("fdlg_settings_open"), ["public.json"])
     else:
         filepath = filedialog.askopenfilename(
             title=i18n.t("fdlg_settings_open"),
