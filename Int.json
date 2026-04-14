@@ -1,0 +1,7 @@
+{
+    "table_filename": "C:/Users/FabianM/Desktop/SendEmailGUI2/Financial_Data.xlsx",
+    "attachment_dir": "C:/Users/FabianM/Desktop/SendEmailGUI2/Attachments",
+    "sheet_name": "Int",
+    "subject": "Fizet\u00e9si jegyz\u00e9k -  2025. janu\u00e1r",
+    "html_body": "<b>Tisztelt F\u0151igazgat\u00f3 Asszony!\nTisztelt F\u0151igazgat\u00f3 \u00dar!\nTisztelt Igazgat\u00f3 Asszony!\nTisztelt Igazgat\u00f3 \u00dar!</b>\n\nMell\u00e9kletben k\u00fcld\u00f6m \u00d6n\u00f6knek a 2025. janu\u00e1r havi b\u00e9rjegyz\u00e9ket.\n\nAmennyiben nem tudj\u00e1k megnyitni a csatolm\u00e1nyt, jelezz\u00e9k e-mailen.\n\nSz\u00edves egy\u00fcttm\u0171k\u00f6d\u00e9s\u00fcket el\u0151re is k\u00f6sz\u00f6n\u00f6m."
+}
