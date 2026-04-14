@@ -11,13 +11,112 @@ import email_generation
 IS_MAC = sys.platform == 'darwin'
 
 
+# ── Table HTML parser (module-level helper) ───────────────────────────────────
+
+def _parse_table_html(html):
+    """Parse a <table>…</table> HTML string into a 2D list of plain-text cell values."""
+    rows = []
+    low  = html.lower()
+    pos  = 0
+    while True:
+        tr_start = low.find("<tr", pos)
+        if tr_start == -1:
+            break
+        tr_end = low.find("</tr>", tr_start)
+        if tr_end == -1:
+            break
+        row_html = html[tr_start:tr_end]
+        row_low  = row_html.lower()
+        row = []
+        cp = 0
+        while True:
+            td_p = row_low.find("<td", cp)
+            th_p = row_low.find("<th", cp)
+            if td_p == -1 and th_p == -1:
+                break
+            if td_p == -1:
+                cs, tn = th_p, "th"
+            elif th_p == -1:
+                cs, tn = td_p, "td"
+            else:
+                cs, tn = (td_p, "td") if td_p < th_p else (th_p, "th")
+            content_start = row_low.find(">", cs) + 1
+            close         = f"</{tn}>"
+            cell_end      = row_low.find(close, content_start)
+            if cell_end == -1:
+                cp = content_start
+                continue
+            val = row_html[content_start:cell_end].strip()
+            val = val.replace("&nbsp;", "").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+            row.append(val)
+            cp = cell_end + len(close)
+        rows.append(row)
+        pos = tr_end + 5
+    return rows
+
+
+# ── Embedded table widget ─────────────────────────────────────────────────────
+
+class TableWidget(tk.Frame):
+    """Editable table embedded directly inside a RichTextEditor."""
+
+    def __init__(self, master, rows, cols, **kwargs):
+        super().__init__(master, bg="#ffffff", bd=1, relief="solid", **kwargs)
+        self.rows  = rows
+        self.cols  = cols
+        self.cells = []
+        for r in range(rows):
+            row_cells = []
+            for c in range(cols):
+                bg = "#d9e1f2" if r == 0 else "#ffffff"
+                e  = tk.Entry(self, width=10, font=("Verdana", 9),
+                              bg=bg, relief="solid", bd=1, highlightthickness=0)
+                e.grid(row=r, column=c, padx=0, pady=0, ipadx=4, ipady=3, sticky="nsew")
+                self.columnconfigure(c, weight=1)
+                row_cells.append(e)
+            self.cells.append(row_cells)
+
+    def get_html(self):
+        rows_html = []
+        for r, row in enumerate(self.cells):
+            cells_html = []
+            for cell in row:
+                raw = cell.get()
+                val = (raw.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                       if raw else "&nbsp;")
+                if r == 0:
+                    cells_html.append(
+                        f'<th style="border:1px solid #000000;padding:5px;'
+                        f'background-color:#d9e1f2;">{val}</th>'
+                    )
+                else:
+                    cells_html.append(
+                        f'<td style="border:1px solid #000000;padding:5px;">{val}</td>'
+                    )
+            rows_html.append("  <tr>" + "".join(cells_html) + "</tr>")
+        return (
+            '\n<table border="1" cellpadding="5" cellspacing="0" '
+            'style="border-collapse:collapse;width:100%;">\n'
+            + "\n".join(rows_html)
+            + "\n</table>\n"
+        )
+
+    def set_content(self, table_data):
+        for r, row_data in enumerate(table_data[:self.rows]):
+            for c, val in enumerate(row_data[:self.cols]):
+                if r < len(self.cells) and c < len(self.cells[r]):
+                    self.cells[r][c].delete(0, tk.END)
+                    self.cells[r][c].insert(0, val)
+
+
 # ── WYSIWYG Rich Text Editor ─────────────────────────────────────────────────
 
 class RichTextEditor(tk.Text):
     """tk.Text subclass with WYSIWYG HTML editing.
 
     Bold / italic / underline are displayed visually using widget tags.
-    Raw HTML (tables, unknown tags) is shown in grey monospace.
+    Tables are embedded as editable TableWidget frames.
+    Raw unknown HTML is shown in grey monospace.
     get_html() / set_html() handle serialisation to/from HTML strings.
     """
 
@@ -28,7 +127,7 @@ class RichTextEditor(tk.Text):
     }
 
     def __init__(self, master, **kwargs):
-        font = kwargs.get("font", ("Verdana", 10))
+        font   = kwargs.get("font", ("Verdana", 10))
         family = font[0] if isinstance(font, tuple) and len(font) >= 1 else "Verdana"
         size   = font[1] if isinstance(font, tuple) and len(font) >= 2 else 10
         super().__init__(master, **kwargs)
@@ -36,6 +135,9 @@ class RichTextEditor(tk.Text):
         self.tag_configure("italic",    font=(family, size, "italic"))
         self.tag_configure("underline", underline=True)
         self.tag_configure("raw_html",  foreground="#aaaaaa", font=("Courier", 9))
+        self._embedded_tables = {}   # str(widget) → TableWidget
+
+    # ── Formatting ────────────────────────────────────────────────────────
 
     def toggle_format(self, tag):
         try:
@@ -48,15 +150,27 @@ class RichTextEditor(tk.Text):
         else:
             self.tag_add(tag, sel_first, sel_last)
 
+    # ── Raw HTML (grey monospace, for unknown tags) ───────────────────────
+
     def insert_raw(self, html_text):
         start = self.index(tk.INSERT)
         self.insert(tk.INSERT, html_text)
         self.tag_add("raw_html", start, self.index(tk.INSERT))
 
+    # ── Table widget ──────────────────────────────────────────────────────
+
+    def insert_table_widget(self, rows, cols):
+        tw = TableWidget(self, rows, cols)
+        self.window_create(tk.INSERT, window=tw)
+        self._embedded_tables[str(tw)] = tw
+        self.insert(tk.INSERT, "\n")
+
+    # ── Serialisation ─────────────────────────────────────────────────────
+
     def get_html(self):
         result = []
         raw_on = False
-        for key, value, _ in self.dump("1.0", "end-1c", text=True, tag=True):
+        for key, value, _ in self.dump("1.0", "end-1c", text=True, tag=True, window=True):
             if key == "tagon":
                 if value == "raw_html":
                     raw_on = True
@@ -69,12 +183,24 @@ class RichTextEditor(tk.Text):
                     result.append(self._TAGS[value][1])
             elif key == "text":
                 result.append(value if raw_on else value.replace("\n", "<br>"))
+            elif key == "window":
+                tw = self._embedded_tables.get(value)
+                if tw:
+                    result.append(tw.get_html())
         return "".join(result)
 
     def set_html(self, html):
+        # Destroy existing embedded table widgets
+        for tw in self._embedded_tables.values():
+            try:
+                tw.destroy()
+            except Exception:
+                pass
+        self._embedded_tables.clear()
         self.delete("1.0", tk.END)
         if not html:
             return
+
         _TAG_MAP = {
             "b": "bold", "strong": "bold",
             "i": "italic", "em": "italic",
@@ -84,7 +210,7 @@ class RichTextEditor(tk.Text):
         i = 0
         while i < len(html):
             if html[i] != "<":
-                j = html.find("<", i)
+                j     = html.find("<", i)
                 chunk = html[i:] if j == -1 else html[i:j]
                 if chunk:
                     s = self.index(tk.END + "-1c")
@@ -102,12 +228,29 @@ class RichTextEditor(tk.Text):
                 inner = html[i + 1:j].strip()
                 name  = (inner.lower().split()[0] if inner else "").rstrip("/")
                 i = j + 1
+
                 if name == "br":
                     s = self.index(tk.END + "-1c")
                     self.insert(tk.END, "\n")
                     e = self.index(tk.END + "-1c")
                     for t in active:
                         self.tag_add(t, s, e)
+                elif name == "table":
+                    end_idx = html.lower().find("</table>", i)
+                    if end_idx != -1:
+                        full_table  = full + html[i:end_idx + 8]
+                        table_data  = _parse_table_html(full_table)
+                        rows = len(table_data)
+                        cols = max((len(r) for r in table_data), default=1) if rows else 0
+                        if rows > 0 and cols > 0:
+                            tw = TableWidget(self, rows, cols)
+                            tw.set_content(table_data)
+                            self.window_create(tk.END, window=tw)
+                            self._embedded_tables[str(tw)] = tw
+                            self.insert(tk.END, "\n")
+                        i = end_idx + 8
+                    else:
+                        self.insert_raw(full)
                 elif name.startswith("/"):
                     clean = name[1:]
                     if clean in _TAG_MAP:
@@ -141,19 +284,22 @@ def insert_table(html_body_text):
     def on_ok():
         rows = rows_var.get()
         cols = cols_var.get()
-        cell        = '<td style="border:1px solid #000000;padding:5px;">&nbsp;</td>'
-        header_cell = '<th style="border:1px solid #000000;padding:5px;background-color:#d9e1f2;">&nbsp;</th>'
-        table_html  = (
-            '\n<table border="1" cellpadding="5" cellspacing="0" '
-            'style="border-collapse:collapse;width:100%;">\n'
-            + "  <tr>" + header_cell * cols + "</tr>\n"
-            + ("  <tr>" + cell * cols + "</tr>\n") * (rows - 1)
-            + "</table>\n"
-        )
-        if hasattr(html_body_text, 'insert_raw'):
-            html_body_text.insert_raw(table_html)
+        if hasattr(html_body_text, 'insert_table_widget'):
+            html_body_text.insert_table_widget(rows, cols)
         else:
-            html_body_text.insert(tk.INSERT, table_html)
+            cell        = '<td style="border:1px solid #000000;padding:5px;">&nbsp;</td>'
+            header_cell = '<th style="border:1px solid #000000;padding:5px;background-color:#d9e1f2;">&nbsp;</th>'
+            table_html  = (
+                '\n<table border="1" cellpadding="5" cellspacing="0" '
+                'style="border-collapse:collapse;width:100%;">\n'
+                + "  <tr>" + header_cell * cols + "</tr>\n"
+                + ("  <tr>" + cell * cols + "</tr>\n") * (rows - 1)
+                + "</table>\n"
+            )
+            if hasattr(html_body_text, 'insert_raw'):
+                html_body_text.insert_raw(table_html)
+            else:
+                html_body_text.insert(tk.INSERT, table_html)
         dialog.destroy()
 
     ttk.Button(dialog, text="Beszúrás", command=on_ok).grid(row=2, column=0, columnspan=2, pady=12)
