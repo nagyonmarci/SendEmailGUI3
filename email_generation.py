@@ -100,6 +100,7 @@ def stop_email_generation():
 def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text):
     if IS_WINDOWS:
         pythoncom.CoInitialize()
+    workbook = None
     try:
         global stop_generation, generation_in_progress
         generation_in_progress = True
@@ -114,50 +115,53 @@ def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_en
                 print("E-mail generálás megállítva.")
                 break
 
-            attachments_raw = sheet.cell(row=i, column=1).value.split(';')
-            recipient_name = sheet.cell(row=i, column=2).value
-            recipient_email = sheet.cell(row=i, column=3).value
-            cc_email = sheet.cell(row=i, column=4).value
-            subject = subject_entry.get()
-            if hasattr(html_body_text, 'get_html'):
-                html_content = html_body_text.get_html()
-            else:
-                html_content = html_body_text.get("1.0", "end-1c").replace("\n", "<br>")
-
-            if IS_WINDOWS:
-                mail = outlook.CreateItem(0)
-                mail.Display(False)
-                if recipient_name:
-                    mail.To = f"{recipient_name} <{recipient_email}>"
+            try:
+                attachments_raw = (sheet.cell(row=i, column=1).value or '').split(';')
+                recipient_name = sheet.cell(row=i, column=2).value
+                recipient_email = sheet.cell(row=i, column=3).value
+                cc_email = sheet.cell(row=i, column=4).value
+                subject = subject_entry.get()
+                if hasattr(html_body_text, 'get_html'):
+                    html_content = html_body_text.get_html()
                 else:
-                    mail.To = recipient_email
-                if cc_email:
-                    mail.CC = cc_email
-                mail.Subject = subject
-                current_body = mail.HTMLBody
-                mail.HTMLBody = DEFAULT_HTML_BODY_FIRST + html_content + DEFAULT_HTML_BODY_LAST + current_body
-                for attachment in attachments_raw:
-                    if attachment:
-                        attachment_path = os.path.join(attachment_dir.get(), attachment.strip())
-                        if os.path.exists(attachment_path):
-                            mail.Attachments.Add(attachment_path)
-                mail.Display()
-            else:
-                full_attachments = []
-                for attachment in attachments_raw:
-                    if attachment:
-                        attachment_path = os.path.join(attachment_dir.get(), attachment.strip())
-                        if os.path.exists(attachment_path):
-                            full_attachments.append(attachment_path)
-                _create_email_mac(recipient_name, recipient_email, cc_email,
-                                  subject, html_content, full_attachments)
+                    html_content = html_body_text.get("1.0", "end-1c").replace("\n", "<br>")
+
+                if IS_WINDOWS:
+                    mail = outlook.CreateItem(0)
+                    mail.Display(False)
+                    if recipient_name:
+                        mail.To = f"{recipient_name} <{recipient_email}>"
+                    else:
+                        mail.To = recipient_email
+                    if cc_email:
+                        mail.CC = cc_email
+                    mail.Subject = subject
+                    current_body = mail.HTMLBody
+                    mail.HTMLBody = DEFAULT_HTML_BODY_FIRST + html_content + DEFAULT_HTML_BODY_LAST + current_body
+                    for attachment in attachments_raw:
+                        if attachment:
+                            attachment_path = os.path.join(attachment_dir.get(), attachment.strip())
+                            if os.path.exists(attachment_path):
+                                mail.Attachments.Add(attachment_path)
+                    mail.Display()
+                else:
+                    full_attachments = []
+                    for attachment in attachments_raw:
+                        if attachment:
+                            attachment_path = os.path.join(attachment_dir.get(), attachment.strip())
+                            if os.path.exists(attachment_path):
+                                full_attachments.append(attachment_path)
+                    _create_email_mac(recipient_name, recipient_email, cc_email,
+                                      subject, html_content, full_attachments)
+            except Exception as e:
+                print(f"Hiba a {i}. sorban: {e}")
 
     except Exception as e:
         print(f"Hiba történt: {e}")
     finally:
         if IS_WINDOWS:
             pythoncom.CoUninitialize()
-        if 'workbook' in locals():
+        if workbook is not None:
             workbook.close()
         generation_in_progress = False
         stop_generation = False
