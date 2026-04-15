@@ -1,6 +1,7 @@
 # SendEmailGUI3
 
 ![Verzió](https://img.shields.io/badge/verzió-1.0.0-blue)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 
 Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS platformon egyaránt fut.
 
@@ -9,6 +10,15 @@ Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS pla
 ## Inspiráció
 
 Ez a projekt [Sven-Bo/create-distribute-excel-files](https://github.com/Sven-Bo/create-distribute-excel-files) repón és a kapcsolódó [YouTube-videón](https://www.youtube.com/watch?v=RGR048I5ZDE) alapul.
+
+## Letöltés
+
+Az előre lefordított futtatható fájlok elérhetők a [Releases oldalon](../../releases).
+
+| Platform | Fájl |
+|----------|------|
+| macOS    | `SendEmailGUI3-mac.zip` → kicsomagolás után a `SendEmailGUI3.app` az Applications mappába másolható |
+| Windows  | `SendEmailGUI3.exe` → közvetlenül futtatható, telepítés nem szükséges |
 
 ## Funkciók
 
@@ -28,37 +38,89 @@ Ez a projekt [Sven-Bo/create-distribute-excel-files](https://github.com/Sven-Bo/
 
 | Platform | Követelmény |
 |----------|-------------|
-| Windows  | Python 3.x, Microsoft Outlook, `pywin32`, `openpyxl` |
-| macOS    | Python 3.x, Microsoft Outlook for Mac, `openpyxl` |
+| Windows  | Telepített Microsoft Outlook |
+| macOS    | Telepített Microsoft Outlook for Mac |
 
-## Telepítés
+> Forrásból való futtatáshoz Python 3.x és `openpyxl` is szükséges (lásd [Telepítés](#telepítés-és-indítás)).
+
+## Telepítés és indítás
 
 ```bash
 pip install openpyxl
 # Windows esetén:
 pip install pywin32
-```
 
-## Indítás
-
-```bash
 python3 main.py
 ```
 
-## Excel-fájl formátuma
+## Használat
 
-Az első sor fejléc (nem kerül feldolgozásra). A következő oszlopok szükségesek:
+### 1. Az Excel-fájl előkészítése
+
+- Az **első sor fejléc**, a program nem dolgozza fel
+- Szükséges oszlopok:
 
 | Oszlop | Tartalom |
 |--------|----------|
-| A | Melléklet fájlnév(ek), pontosvesszővel elválasztva (pl. `dok1.pdf;dok2.xlsx`) |
+| A | Melléklet fájlnév(ek), pontosvesszővel elválasztva (pl. `dok1.pdf;szerzodes.docx`) |
 | B | Címzett neve |
 | C | Címzett email-címe |
-| D | CC email-cím (elhagyható) |
+| D | CC email-cím (elhagyható, lehet üres) |
 
-## Beállítások
+- Valamennyi mellékletfájlnak ugyanabban a mappában kell lennie
 
-Az alkalmazás indításkor automatikusan visszaállítja az utolsó mentett beállításokat. A Fájl menüből más fájl is megnyitható vagy menthető.
+### 2. Adatok megadása az alkalmazásban
+
+1. **Excel fájl** — tallózással vagy kézzel megadva; a munkalapok neve automatikusan betöltődik a legördülőbe
+2. **Mellékletek mappája** — a csatolandó fájlok helye
+3. **Munkalap neve** — legördülő listából választani
+4. **Email tárgy** — szabad szöveg
+
+### 3. Az email-törzs szerkesztése (WYSIWYG eszköztár)
+
+| Elem | Funkció |
+|------|---------|
+| Betűtípus lenyíló | Verdana, Arial, Times New Roman, stb. |
+| Betűméret lenyíló | 8–36 pt |
+| **A** gomb | Betűszín kiválasztása |
+| **B** / *I* / U | Félkövér / Dőlt / Aláhúzás |
+| ← / ↔ / → | Balra / Középre / Jobbra igazítás |
+| ⊞ Táblázat | Szerkeszthető táblázat beszúrása |
+
+### 4. Emailek generálása
+
+- **▶ Email-ek generálása** — az Outlook minden címzetthez megnyit egy vázlat-emailt; az emailek **nem kerülnek automatikusan elküldésre**, azokat Outlookban manuálisan kell elküldeni
+- **⏹ Leállítás** — a generálás az aktuális sor után megáll
+- **✕ Ablakok bezárása** — egyszerre bezárja az összes nyitott Outlook vázlatablakot
+
+### 5. Billentyűparancsok
+
+| Funkció | Mac | Windows |
+|---------|-----|---------|
+| Beállítások mentése | Cmd+S | Ctrl+S |
+| Beállítások megnyitása | Cmd+O | Ctrl+O |
+| Generálás indítása | Cmd+Return | Ctrl+Return |
+| Félkövér | Cmd+B | Ctrl+B |
+| Dőlt | Cmd+I | Ctrl+I |
+| Aláhúzás | Cmd+U | Ctrl+U |
+
+### 6. Beállítások kezelése
+
+- Bezáráskor **automatikusan ment**, újraindításkor visszaállít
+- **Mentés másként** (Fájl menü) — az aktuális konfiguráció mentése más JSON-fájlba (több kampány kezeléséhez hasznos)
+- **Megnyitás** (Fájl menü) — korábban mentett konfiguráció betöltése
+- **Alaphelyzetbe állítás** (Fájl menü) — minden mező törlése
+- **Nyelv** (Fájl menü) — Magyar / English váltás
+
+## Excel-fájl formátuma (részletesen)
+
+Az első sor fejléc (nem kerül feldolgozásra). Példa:
+
+| A | B | C | D |
+|---|---|---|---|
+| Mellékletek | Név | Email | CC |
+| jelentes.pdf;osszefoglaló.xlsx | Kovács János | janos@pelda.hu | vezeto@pelda.hu |
+| szamla.pdf | Nagy Éva | eva@pelda.hu | |
 
 ## Fájlstruktúra
 
@@ -77,16 +139,27 @@ A build az adott platformon futtatandó — cross-compile nem lehetséges.
 
 ### Előfeltételek
 
+**macOS / Linux**
 ```bash
 pip install pyinstaller openpyxl
-# Windows esetén még:
-pip install pywin32
+```
+
+**Windows** (PowerShell)
+```powershell
+python -m venv buildenv
+.\buildenv\Scripts\pip.exe install pyinstaller openpyxl pywin32
 ```
 
 ### Build
 
+**macOS / Linux**
 ```bash
 pyinstaller SendEmailGUI3.spec
+```
+
+**Windows** (PowerShell)
+```powershell
+.\buildenv\Scripts\pyinstaller.exe SendEmailGUI3.spec
 ```
 
 ### Kimenet
