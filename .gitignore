@@ -13,5 +13,6 @@ attachments/
 configs/
 *.xlsx
 *.xls
-!settings.json
+*.zip
 *.json
+!settings.json
