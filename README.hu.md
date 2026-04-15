@@ -1,6 +1,6 @@
 # SendEmailGUI3
 
-[![Verzió](https://img.shields.io/badge/verzió-1.0.0-blue)](../../releases)
+[![Verzió](https://img.shields.io/badge/verzió-1.0.1-blue)](../../releases)
 [![Licenc](https://img.shields.io/badge/licenc-Unlicense-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)](#letöltés)
 
@@ -18,8 +18,27 @@ Az előre lefordított futtatható fájlok elérhetők a [Releases oldalon](../.
 
 | Platform | Fájl |
 |----------|------|
-| macOS    | `SendEmailGUI3-mac.zip` → kicsomagolás után a `SendEmailGUI3.app` az Applications mappába másolható |
-| Windows  | `SendEmailGUI3.exe` → közvetlenül futtatható, telepítés nem szükséges |
+| macOS | `SendEmailGUI3-mac.zip` → lásd [macOS telepítés](#macos-telepítés) alább |
+| Windows x64 | `SendEmailGUI3-win-x64.exe` → közvetlenül futtatható, telepítés nem szükséges |
+| Windows ARM64 | `SendEmailGUI3-win-arm64.exe` → közvetlenül futtatható, telepítés nem szükséges |
+
+## macOS telepítés
+
+A macOS alapértelmezés szerint blokkolja az ismeretlen fejlesztőktől származó appokat. A mellékelt telepítőscript segítségével ez a korlátozás eltávolítható:
+
+1. Csomagold ki a `SendEmailGUI3-mac.zip` fájlt
+2. Nyiss **Terminal**t, és lépj be a kicsomagolt mappába:
+   ```bash
+   cd ~/Downloads/mac_release
+   bash install.sh
+   ```
+   A script eltávolítja a karanténjelzőt, és opcionálisan az `/Applications` mappába helyezi az appot.
+
+**Alternatíva (manuális):** Ha a scriptet nem szeretnéd használni, futtasd ezt a parancsot kicsomagolás után:
+```bash
+xattr -dr com.apple.quarantine SendEmailGUI3.app
+```
+Ezután a `SendEmailGUI3.app`-ot kézzel helyezd az `/Applications` mappába.
 
 ## Funkciók
 

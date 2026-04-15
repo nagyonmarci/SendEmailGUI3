@@ -56,11 +56,13 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller SendEmailGUI3.spec
 
-      - name: Zip .app bundle
+      - name: Zip .app bundle with installer
         run: |
-          ditto -c -k --sequesterRsrc --keepParent \
-            dist/SendEmailGUI3.app \
-            SendEmailGUI3-mac.zip
+          mkdir -p mac_release
+          cp -R dist/SendEmailGUI3.app mac_release/
+          cp install.sh mac_release/
+          chmod +x mac_release/install.sh
+          ditto -c -k --sequesterRsrc mac_release SendEmailGUI3-mac.zip
 
       - uses: actions/upload-artifact@v4
         with:

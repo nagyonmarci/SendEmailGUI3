@@ -1,6 +1,6 @@
 # SendEmailGUI3
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue)](../../releases)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue)](../../releases)
 [![License](https://img.shields.io/badge/license-Unlicense-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)](#download)
 
@@ -18,8 +18,27 @@ Pre-built binaries are available on the [Releases page](../../releases).
 
 | Platform | File |
 |----------|------|
-| macOS    | `SendEmailGUI3-mac.zip` → extract and move `SendEmailGUI3.app` to Applications |
-| Windows  | `SendEmailGUI3.exe` → run directly, no installation needed |
+| macOS | `SendEmailGUI3-mac.zip` → see [macOS installation](#macos-installation) below |
+| Windows x64 | `SendEmailGUI3-win-x64.exe` → run directly, no installation needed |
+| Windows ARM64 | `SendEmailGUI3-win-arm64.exe` → run directly, no installation needed |
+
+## macOS installation
+
+macOS blocks apps from unidentified developers by default. Use the included installer script to remove this restriction:
+
+1. Extract `SendEmailGUI3-mac.zip`
+2. Open **Terminal** and navigate to the extracted folder:
+   ```bash
+   cd ~/Downloads/mac_release
+   bash install.sh
+   ```
+   The script removes the quarantine flag and optionally moves the app to `/Applications`.
+
+**Alternative (manual):** If you prefer not to use the script, run this command after extracting:
+```bash
+xattr -dr com.apple.quarantine SendEmailGUI3.app
+```
+Then move `SendEmailGUI3.app` to `/Applications` manually.
 
 ## Features
 
