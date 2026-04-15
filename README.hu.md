@@ -1,6 +1,7 @@
 # SendEmailGUI3
 
 ![Verzió](https://img.shields.io/badge/verzió-1.0.0-blue)
+![Licenc](https://img.shields.io/badge/licenc-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 
 Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS platformon egyaránt fut.
