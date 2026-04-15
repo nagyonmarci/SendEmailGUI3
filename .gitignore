@@ -6,6 +6,8 @@ dist/
 myenv/
 *.spec
 !SendEmailGUI3.spec
+!SendEmailGUI3-win-x64.spec
+!SendEmailGUI3-win-arm64.spec
 addressbook/
 attachments/
 configs/

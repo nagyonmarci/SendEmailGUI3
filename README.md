@@ -153,22 +153,28 @@ python -m venv buildenv
 
 ### Build
 
-**macOS / Linux**
+**macOS**
 ```bash
 pyinstaller SendEmailGUI3.spec
 ```
 
-**Windows** (PowerShell)
+**Windows x64** (PowerShell)
 ```powershell
-.\buildenv\Scripts\pyinstaller.exe SendEmailGUI3.spec
+.\buildenv\Scripts\pyinstaller.exe SendEmailGUI3-win-x64.spec
+```
+
+**Windows ARM64** (PowerShell)
+```powershell
+.\buildenv\Scripts\pyinstaller.exe SendEmailGUI3-win-arm64.spec
 ```
 
 ### Output
 
 | Platform | File |
 |----------|------|
-| Windows  | `dist\SendEmailGUI3.exe` |
 | macOS    | `dist/SendEmailGUI3.app` |
+| Windows x64   | `dist\SendEmailGUI3-win-x64.exe` |
+| Windows ARM64 | `dist\SendEmailGUI3-win-arm64.exe` |
 
 The settings file (`settings.json`) is stored in the user data directory:
 - **Windows**: `%APPDATA%\SendEmailGUI3\settings.json`

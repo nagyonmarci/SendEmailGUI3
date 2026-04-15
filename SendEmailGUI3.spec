@@ -64,26 +64,4 @@ if sys.platform == 'darwin':
         },
     )
 else:
-    # Windows: onefile .exe
-    exe = EXE(
-        pyz,
-        a.scripts,
-        a.binaries,
-        a.zipfiles,
-        a.datas,
-        [],
-        name='SendEmailGUI3',
-        debug=False,
-        bootloader_ignore_signals=False,
-        strip=False,
-        upx=True,
-        upx_exclude=[],
-        runtime_tmpdir=None,
-        console=False,
-        disable_windowed_traceback=False,
-        argv_emulation=False,
-        target_arch=None,
-        codesign_identity=None,
-        entitlements_file=None,
-        icon=None,
-    )
+    raise SystemExit("Use SendEmailGUI3-win-x64.spec or SendEmailGUI3-win-arm64.spec on Windows.")
