@@ -759,6 +759,11 @@ def create_gui():
                             sheet_name_entry, subject_entry, html_body_text)
     apply_language(i18n.get_lang())
 
+    def on_close():
+        save_cmd()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
     root.mainloop()
 
 
