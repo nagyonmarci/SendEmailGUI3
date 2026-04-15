@@ -1,8 +1,9 @@
+import re
 import sys
 import subprocess
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import filedialog, VERTICAL
+from tkinter import colorchooser, filedialog, VERTICAL
 from tkinter import ttk
 import threading
 import i18n
@@ -12,10 +13,9 @@ import email_generation
 IS_MAC = sys.platform == 'darwin'
 
 
-# ── Table HTML parser (module-level helper) ───────────────────────────────────
+# ── Table HTML parser ─────────────────────────────────────────────────────────
 
 def _parse_table_html(html):
-    """Parse a <table>…</table> HTML string into a 2D list of plain-text cell values."""
     rows = []
     low  = html.lower()
     pos  = 0
@@ -59,8 +59,6 @@ def _parse_table_html(html):
 # ── Embedded table widget ─────────────────────────────────────────────────────
 
 class TableWidget(tk.Frame):
-    """Editable table embedded directly inside a RichTextEditor."""
-
     def __init__(self, master, rows, cols, **kwargs):
         super().__init__(master, bg="#ffffff", bd=1, relief="solid", **kwargs)
         self.rows  = rows
@@ -113,11 +111,11 @@ class TableWidget(tk.Frame):
 # ── WYSIWYG Rich Text Editor ──────────────────────────────────────────────────
 
 class RichTextEditor(tk.Text):
-    _TAGS = {
-        "bold":      ("<b>",  "</b>"),
-        "italic":    ("<i>",  "</i>"),
-        "underline": ("<u>",  "</u>"),
-    }
+    """WYSIWYG editor with bold/italic/underline, font, size, color, alignment.
+
+    HTML is serialised via get_html() and deserialised via set_html().
+    Tables are embedded as editable TableWidget frames.
+    """
 
     def __init__(self, master, **kwargs):
         font   = kwargs.get("font", ("Verdana", 10))
@@ -130,6 +128,8 @@ class RichTextEditor(tk.Text):
         self.tag_configure("raw_html",  foreground="#aaaaaa", font=("Courier", 9))
         self._embedded_tables = {}
 
+    # ── Character formatting ──────────────────────────────────────────────
+
     def toggle_format(self, tag):
         try:
             sel_first = self.index(tk.SEL_FIRST)
@@ -141,10 +141,74 @@ class RichTextEditor(tk.Text):
         else:
             self.tag_add(tag, sel_first, sel_last)
 
+    def apply_font(self, family):
+        try:
+            sel_first = self.index(tk.SEL_FIRST)
+            sel_last  = self.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        for tag in list(self.tag_names()):
+            if tag.startswith("font_"):
+                self.tag_remove(tag, sel_first, sel_last)
+        if family:
+            tag_name = f"font_{family.replace(' ', '_')}"
+            if tag_name not in self.tag_names():
+                self.tag_configure(tag_name, font=(family, 10))
+            self.tag_add(tag_name, sel_first, sel_last)
+
+    def apply_size(self, size):
+        try:
+            sel_first = self.index(tk.SEL_FIRST)
+            sel_last  = self.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        for tag in list(self.tag_names()):
+            if tag.startswith("size_"):
+                self.tag_remove(tag, sel_first, sel_last)
+        tag_name = f"size_{size}"
+        if tag_name not in self.tag_names():
+            self.tag_configure(tag_name, font=("Verdana", int(size)))
+        self.tag_add(tag_name, sel_first, sel_last)
+
+    def apply_color(self, hex_color):
+        try:
+            sel_first = self.index(tk.SEL_FIRST)
+            sel_last  = self.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        for tag in list(self.tag_names()):
+            if tag.startswith("color_"):
+                self.tag_remove(tag, sel_first, sel_last)
+        if hex_color:
+            clean    = hex_color.lstrip("#").upper()
+            tag_name = f"color_{clean}"
+            if tag_name not in self.tag_names():
+                self.tag_configure(tag_name, foreground=f"#{clean}")
+            self.tag_add(tag_name, sel_first, sel_last)
+
+    def apply_alignment(self, direction):
+        try:
+            sel_first = self.index(tk.SEL_FIRST + " linestart")
+            sel_last  = self.index(tk.SEL_LAST  + " lineend+1c")
+        except tk.TclError:
+            sel_first = self.index("insert linestart")
+            sel_last  = self.index("insert lineend+1c")
+        for tag in ("align_center", "align_right"):
+            self.tag_remove(tag, sel_first, sel_last)
+        if direction in ("center", "right"):
+            tag_name = f"align_{direction}"
+            if tag_name not in self.tag_names():
+                self.tag_configure(tag_name, justify=direction)
+            self.tag_add(tag_name, sel_first, sel_last)
+
+    # ── Raw HTML fallback ─────────────────────────────────────────────────
+
     def insert_raw(self, html_text):
         start = self.index(tk.INSERT)
         self.insert(tk.INSERT, html_text)
         self.tag_add("raw_html", start, self.index(tk.INSERT))
+
+    # ── Table widget ──────────────────────────────────────────────────────
 
     def insert_table_widget(self, rows, cols):
         tw = TableWidget(self, rows, cols)
@@ -152,27 +216,88 @@ class RichTextEditor(tk.Text):
         self._embedded_tables[str(tw)] = tw
         self.insert(tk.INSERT, "\n")
 
+    # ── HTML serialisation ────────────────────────────────────────────────
+
     def get_html(self):
-        result = []
-        raw_on = False
+        result      = []
+        active      = set()
+        span_style  = [None]
+        align_state = [None]
+        raw_on      = [False]
+
+        def inline_style():
+            parts = []
+            if "bold"      in active: parts.append("font-weight:bold")
+            if "italic"    in active: parts.append("font-style:italic")
+            if "underline" in active: parts.append("text-decoration:underline")
+            for t in sorted(active):
+                if t.startswith("font_"):
+                    fam = t[5:].replace("_", " ")
+                    parts.append(f'font-family:"{fam}"' if " " in fam else f"font-family:{fam}")
+                elif t.startswith("size_"):
+                    parts.append(f"font-size:{t[5:]}pt")
+                elif t.startswith("color_"):
+                    parts.append(f"color:#{t[6:]}")
+            return ";".join(parts) or None
+
+        def cur_align():
+            for t in active:
+                if t in ("align_center", "align_right"):
+                    return t[6:]
+            return None
+
+        def close_span():
+            if span_style[0]:
+                result.append("</span>")
+                span_style[0] = None
+
+        def open_span(style):
+            if style:
+                result.append(f'<span style="{style}">')
+                span_style[0] = style
+
+        def sync():
+            new_align = cur_align()
+            new_style = inline_style()
+            if new_align != align_state[0]:
+                close_span()
+                if align_state[0]:
+                    result.append("</div>")
+                if new_align:
+                    result.append(f'<div style="text-align:{new_align};">')
+                align_state[0] = new_align
+                open_span(new_style)
+            elif new_style != span_style[0]:
+                close_span()
+                open_span(new_style)
+
         for key, value, _ in self.dump("1.0", "end-1c", text=True, tag=True, window=True):
             if key == "tagon":
-                if value == "raw_html":
-                    raw_on = True
-                elif value in self._TAGS and not raw_on:
-                    result.append(self._TAGS[value][0])
+                active.add(value)
+                raw_on[0] = "raw_html" in active
+                if not raw_on[0]:
+                    sync()
             elif key == "tagoff":
-                if value == "raw_html":
-                    raw_on = False
-                elif value in self._TAGS and not raw_on:
-                    result.append(self._TAGS[value][1])
+                active.discard(value)
+                raw_on[0] = "raw_html" in active
+                if not raw_on[0]:
+                    sync()
             elif key == "text":
-                result.append(value if raw_on else value.replace("\n", "<br>"))
+                if raw_on[0]:
+                    result.append(value)
+                else:
+                    result.append(value.replace("\n", "<br>"))
             elif key == "window":
                 tw = self._embedded_tables.get(value)
                 if tw:
                     result.append(tw.get_html())
+
+        close_span()
+        if align_state[0]:
+            result.append("</div>")
         return "".join(result)
+
+    # ── HTML deserialisation ──────────────────────────────────────────────
 
     def set_html(self, html):
         for tw in self._embedded_tables.values():
@@ -185,12 +310,65 @@ class RichTextEditor(tk.Text):
         if not html:
             return
 
-        _TAG_MAP = {
-            "b": "bold", "strong": "bold",
-            "i": "italic", "em": "italic",
-            "u": "underline",
-        }
-        active = []
+        tag_stack = []   # [(html_open_tag_name, [tk_tags])]
+
+        def active_tags():
+            return [t for _, tags in tag_stack for t in tags]
+
+        def ensure_tag(tag):
+            if tag in self.tag_names():
+                return
+            if   tag == "bold":      self.tag_configure(tag, font=("Verdana", 10, "bold"))
+            elif tag == "italic":    self.tag_configure(tag, font=("Verdana", 10, "italic"))
+            elif tag == "underline": self.tag_configure(tag, underline=True)
+            elif tag.startswith("font_"):
+                self.tag_configure(tag, font=(tag[5:].replace("_", " "), 10))
+            elif tag.startswith("size_"):
+                self.tag_configure(tag, font=("Verdana", int(tag[5:])))
+            elif tag.startswith("color_"):
+                self.tag_configure(tag, foreground=f"#{tag[6:]}")
+            elif tag.startswith("align_"):
+                self.tag_configure(tag, justify=tag[6:])
+
+        def style_to_tags(inner):
+            m = re.search(r'style=["\']([^"\']*)["\']', inner, re.IGNORECASE)
+            if not m:
+                return []
+            tags = []
+            for item in m.group(1).split(";"):
+                item = item.strip()
+                if ":" not in item:
+                    continue
+                k, v = item.split(":", 1)
+                k, v = k.strip().lower(), v.strip().strip("\"'")
+                if   k == "font-weight" and "bold"    in v: tags.append("bold")
+                elif k == "font-style"  and "italic"  in v: tags.append("italic")
+                elif k == "text-decoration" and "underline" in v: tags.append("underline")
+                elif k == "font-family":
+                    tags.append(f"font_{v.replace(' ', '_')}")
+                elif k == "font-size":
+                    s = v.rstrip("pt").rstrip("px").strip()
+                    if s.isdigit():
+                        tags.append(f"size_{s}")
+                elif k == "color":
+                    tags.append(f"color_{v.lstrip('#').upper()}")
+                elif k == "text-align" and v in ("center", "right"):
+                    tags.append(f"align_{v}")
+            return tags
+
+        def push_tag(html_name, tk_tags):
+            for t in tk_tags:
+                ensure_tag(t)
+            tag_stack.append((html_name, tk_tags))
+
+        def pop_tag(html_name):
+            for idx in range(len(tag_stack) - 1, -1, -1):
+                if tag_stack[idx][0] == html_name:
+                    tag_stack.pop(idx)
+                    return
+
+        _SIMPLE = {"b": "bold", "strong": "bold", "i": "italic", "em": "italic", "u": "underline"}
+
         i = 0
         while i < len(html):
             if html[i] != "<":
@@ -200,7 +378,7 @@ class RichTextEditor(tk.Text):
                     s = self.index(tk.END + "-1c")
                     self.insert(tk.END, chunk)
                     e = self.index(tk.END + "-1c")
-                    for t in active:
+                    for t in active_tags():
                         self.tag_add(t, s, e)
                 i = len(html) if j == -1 else j
             else:
@@ -217,7 +395,7 @@ class RichTextEditor(tk.Text):
                     s = self.index(tk.END + "-1c")
                     self.insert(tk.END, "\n")
                     e = self.index(tk.END + "-1c")
-                    for t in active:
+                    for t in active_tags():
                         self.tag_add(t, s, e)
                 elif name == "table":
                     end_idx = html.lower().find("</table>", i)
@@ -235,18 +413,17 @@ class RichTextEditor(tk.Text):
                         i = end_idx + 8
                     else:
                         self.insert_raw(full)
-                elif name.startswith("/"):
-                    clean = name[1:]
-                    if clean in _TAG_MAP:
-                        tk_tag = _TAG_MAP[clean]
-                        if active and active[-1] == tk_tag:
-                            active.pop()
-                    else:
-                        self.insert_raw(full)
-                elif name in _TAG_MAP:
-                    active.append(_TAG_MAP[name])
+                elif name in _SIMPLE:
+                    push_tag(name, [_SIMPLE[name]])
+                elif name.startswith("/") and name[1:] in _SIMPLE:
+                    pop_tag(name[1:])
+                elif name in ("span", "div", "p"):
+                    push_tag(name, style_to_tags(inner))
+                elif name.startswith("/") and name[1:] in ("span", "div", "p"):
+                    pop_tag(name[1:])
                 else:
-                    self.insert_raw(full)
+                    if not name.startswith("/"):
+                        self.insert_raw(full)
 
 
 # ── Helper functions ──────────────────────────────────────────────────────────
@@ -266,24 +443,8 @@ def insert_table(html_body_text):
     ttk.Spinbox(dialog, from_=1, to=20, textvariable=cols_var, width=6).grid(row=1, column=1, padx=14, pady=8)
 
     def on_ok():
-        rows = rows_var.get()
-        cols = cols_var.get()
         if hasattr(html_body_text, 'insert_table_widget'):
-            html_body_text.insert_table_widget(rows, cols)
-        else:
-            cell        = '<td style="border:1px solid #000000;padding:5px;">&nbsp;</td>'
-            header_cell = '<th style="border:1px solid #000000;padding:5px;background-color:#d9e1f2;">&nbsp;</th>'
-            table_html  = (
-                '\n<table border="1" cellpadding="5" cellspacing="0" '
-                'style="border-collapse:collapse;width:100%;">\n'
-                + "  <tr>" + header_cell * cols + "</tr>\n"
-                + ("  <tr>" + cell * cols + "</tr>\n") * (rows - 1)
-                + "</table>\n"
-            )
-            if hasattr(html_body_text, 'insert_raw'):
-                html_body_text.insert_raw(table_html)
-            else:
-                html_body_text.insert(tk.INSERT, table_html)
+            html_body_text.insert_table_widget(rows_var.get(), cols_var.get())
         dialog.destroy()
 
     ttk.Button(dialog, text=i18n.t("dlg_insert"), command=on_ok).grid(row=2, column=0, columnspan=2, pady=12)
@@ -335,11 +496,10 @@ def create_gui():
     global table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text
 
     root = tk.Tk()
-    root.geometry("900x740")
+    root.geometry("960x760")
     root.eval('tk::PlaceWindow . center')
     root.configure(bg="#f2f2f7")
 
-    # ── Styles ───────────────────────────────────────────────────────────
     style = ttk.Style()
     style.configure("TFrame",       background="#f2f2f7")
     style.configure("TLabel",       background="#f2f2f7", font=("Verdana", 10))
@@ -350,17 +510,14 @@ def create_gui():
                     background="#f2f2f7", foreground="#1a1a2e")
     style.configure("Primary.TButton", font=("Verdana", 10, "bold"))
 
-    # ── Variables ────────────────────────────────────────────────────────
     table_filename = tk.StringVar()
     attachment_dir = tk.StringVar()
     status_var     = tk.StringVar(value=settings.current_settings_file)
 
-    # Widget references for language updates: i18n_key → widget
     _w           = {}
     _browse_btns = []
-    _menubar     = [None]   # mutable container so nested functions can replace it
+    _menubar     = [None]
 
-    # ── Action helpers ────────────────────────────────────────────────────
     def save_cmd():
         settings.save_settings(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
         status_var.set(settings.current_settings_file)
@@ -382,15 +539,12 @@ def create_gui():
     def generate_cmd():
         start_email_generation_thread(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
 
-    # ── Menu builder ──────────────────────────────────────────────────────
     def _build_menubar():
         if _menubar[0] is not None:
             _menubar[0].destroy()
-
-        mod     = "Cmd"     if IS_MAC else "Ctrl"
+        mod     = "Cmd" if IS_MAC else "Ctrl"
         menubar = tk.Menu(root)
 
-        # Fájl / File
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label=i18n.t("menu_save"),    accelerator=f"{mod}+S", command=save_cmd)
         file_menu.add_command(label=i18n.t("menu_save_as"),                         command=save_as_cmd)
@@ -405,7 +559,6 @@ def create_gui():
         file_menu.add_command(label=i18n.t("menu_quit"), command=root.quit)
         menubar.add_cascade(label=i18n.t("menu_file"), menu=file_menu)
 
-        # Szerkesztés / Edit
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label=i18n.t("menu_bold"),         accelerator=f"{mod}+B",
                               command=lambda: html_body_text.toggle_format("bold"))
@@ -417,7 +570,6 @@ def create_gui():
         edit_menu.add_command(label=i18n.t("menu_insert_table"), command=lambda: insert_table(html_body_text))
         menubar.add_cascade(label=i18n.t("menu_edit"), menu=edit_menu)
 
-        # Email
         email_menu = tk.Menu(menubar, tearoff=0)
         email_menu.add_command(label=i18n.t("menu_generate"),      accelerator=f"{mod}+Return", command=generate_cmd)
         email_menu.add_command(label=i18n.t("menu_stop"),                                       command=email_generation.stop_email_generation)
@@ -428,7 +580,6 @@ def create_gui():
         root.config(menu=menubar)
         _menubar[0] = menubar
 
-    # ── Language switcher ─────────────────────────────────────────────────
     def apply_language(lang):
         i18n.set_lang(lang)
         root.title(i18n.t("window_title"))
@@ -474,7 +625,7 @@ def create_gui():
     editor_lf.columnconfigure(0, weight=1)
     _w["section_body"] = editor_lf
 
-    # Formatting toolbar
+    # ── Formatting toolbar ────────────────────────────────────────────────
     toolbar = tk.Frame(editor_lf, bg="#e4e4e9", bd=0)
     toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
 
@@ -483,24 +634,76 @@ def create_gui():
     underline_font = tkfont.Font(family="Verdana", size=11, underline=True)
     normal_font    = tkfont.Font(family="Verdana", size=10)
 
-    _BTN = dict(relief="flat", bd=0, padx=10, pady=4,
+    _BTN = dict(relief="flat", bd=0, padx=8, pady=4,
                 bg="#e4e4e9", activebackground="#c8c8d4", cursor="arrow")
 
+    def _sep():
+        tk.Frame(toolbar, bg="#b0b0b8", width=1).pack(side="left", fill="y", padx=6, pady=4)
+
+    # Font family
+    FONTS = ["Verdana", "Arial", "Times New Roman", "Courier New",
+             "Georgia", "Calibri", "Trebuchet MS"]
+    font_var = tk.StringVar(value="Verdana")
+    font_cb  = ttk.Combobox(toolbar, textvariable=font_var, values=FONTS,
+                            width=13, state="readonly", font=("Verdana", 9))
+    font_cb.pack(side="left", padx=(4, 0), pady=4)
+    font_cb.bind("<<ComboboxSelected>>",
+                 lambda e: (html_body_text.apply_font(font_var.get()), html_body_text.focus_set()))
+
+    # Font size
+    SIZES = ["8", "9", "10", "11", "12", "14", "16", "18", "20", "24", "28", "32", "36"]
+    size_var = tk.StringVar(value="10")
+    size_cb  = ttk.Combobox(toolbar, textvariable=size_var, values=SIZES,
+                            width=4, state="readonly", font=("Verdana", 9))
+    size_cb.pack(side="left", padx=(4, 0), pady=4)
+    size_cb.bind("<<ComboboxSelected>>",
+                 lambda e: (html_body_text.apply_size(size_var.get()), html_body_text.focus_set()))
+
+    # Color picker
+    _color = ["#184879"]
+    color_btn = tk.Button(toolbar, text=" A ", font=underline_font,
+                          fg=_color[0], command=lambda: None, **_BTN)
+    color_btn.pack(side="left", padx=(4, 0), pady=4)
+
+    def pick_color():
+        res = colorchooser.askcolor(color=_color[0], title=i18n.t("toolbar_color"))
+        if res[1]:
+            _color[0] = res[1]
+            color_btn.config(fg=res[1])
+            html_body_text.apply_color(res[1])
+            html_body_text.focus_set()
+
+    color_btn.config(command=pick_color)
+
+    _sep()
+
+    # Bold / Italic / Underline
     tk.Button(toolbar, text="B", font=bold_font,
-              command=lambda: html_body_text.toggle_format("bold"),      **_BTN).pack(side="left", padx=(2, 0), pady=3)
+              command=lambda: html_body_text.toggle_format("bold"),      **_BTN).pack(side="left", pady=4)
     tk.Button(toolbar, text="I", font=italic_font,
-              command=lambda: html_body_text.toggle_format("italic"),    **_BTN).pack(side="left", pady=3)
+              command=lambda: html_body_text.toggle_format("italic"),    **_BTN).pack(side="left", pady=4)
     tk.Button(toolbar, text="U", font=underline_font,
-              command=lambda: html_body_text.toggle_format("underline"), **_BTN).pack(side="left", pady=3)
+              command=lambda: html_body_text.toggle_format("underline"), **_BTN).pack(side="left", pady=4)
 
-    tk.Frame(toolbar, bg="#b0b0b8", width=1).pack(side="left", fill="y", padx=8, pady=4)
+    _sep()
 
+    # Alignment
+    tk.Button(toolbar, text="←", font=normal_font,
+              command=lambda: html_body_text.apply_alignment("left"),   **_BTN).pack(side="left", pady=4)
+    tk.Button(toolbar, text="↔", font=normal_font,
+              command=lambda: html_body_text.apply_alignment("center"), **_BTN).pack(side="left", pady=4)
+    tk.Button(toolbar, text="→", font=normal_font,
+              command=lambda: html_body_text.apply_alignment("right"),  **_BTN).pack(side="left", pady=4)
+
+    _sep()
+
+    # Table
     tbl_btn = tk.Button(toolbar, text=i18n.t("toolbar_table"), font=normal_font,
                         command=lambda: insert_table(html_body_text), **_BTN)
-    tbl_btn.pack(side="left", pady=3)
+    tbl_btn.pack(side="left", pady=4)
     _w["toolbar_table"] = tbl_btn
 
-    # Rich text editor + scrollbar
+    # ── Rich text editor + scrollbar ──────────────────────────────────────
     html_body_text = RichTextEditor(editor_lf, wrap='word', font=('Verdana', 10),
                                     relief="flat", bd=1, highlightthickness=1,
                                     highlightbackground="#c8c8d0",
@@ -534,7 +737,7 @@ def create_gui():
              bg="#dcdce4", fg="#555566", font=("Verdana", 9),
              anchor="w").pack(side="left", padx=10, pady=2)
 
-    # ── Keyboard shortcuts (language-independent) ─────────────────────────
+    # ── Keyboard shortcuts ────────────────────────────────────────────────
     mod_key = "Command" if IS_MAC else "Control"
     root.bind(f"<{mod_key}-b>",      lambda e: html_body_text.toggle_format("bold"))
     root.bind(f"<{mod_key}-i>",      lambda e: html_body_text.toggle_format("italic"))
@@ -543,11 +746,11 @@ def create_gui():
     root.bind(f"<{mod_key}-o>",      lambda e: load_cmd())
     root.bind(f"<{mod_key}-Return>", lambda e: generate_cmd())
 
-    # ── Initial settings + language ───────────────────────────────────────
+    # ── Initial load ──────────────────────────────────────────────────────
     initial = settings.load_settings()
     settings.apply_settings(initial, table_filename, attachment_dir,
                             sheet_name_entry, subject_entry, html_body_text)
-    apply_language(i18n.get_lang())   # builds menubar, sets title and all labels
+    apply_language(i18n.get_lang())
 
     root.mainloop()
 
