@@ -24,8 +24,8 @@ def _get_default_settings_path():
 
 
 DEFAULT_SETTINGS_FILE = _get_default_settings_path()
-DEFAULT_HTML_BODY_FIRST = """<font style="font-family:Verdana" size="10pt" color="#184879">"""
-DEFAULT_HTML_BODY_LAST = """</font>"""
+DEFAULT_HTML_BODY_FIRST = '<div style="font-family:Verdana;font-size:10pt;color:#184879;">'
+DEFAULT_HTML_BODY_LAST = '</div>'
 
 current_settings_file = DEFAULT_SETTINGS_FILE
 

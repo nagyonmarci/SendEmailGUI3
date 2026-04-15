@@ -11,8 +11,8 @@ if IS_WINDOWS:
     import pythoncom
     import win32com.client as win32
 
-DEFAULT_HTML_BODY_FIRST = """<font style="font-family:Verdana" size="10pt" color="#184879">"""
-DEFAULT_HTML_BODY_LAST = """</font>"""
+DEFAULT_HTML_BODY_FIRST = '<div style="font-family:Verdana;font-size:10pt;color:#184879;">'
+DEFAULT_HTML_BODY_LAST = '</div>'
 
 stop_generation = False
 generation_in_progress = False

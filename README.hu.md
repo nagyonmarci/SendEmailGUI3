@@ -1,0 +1,97 @@
+# SendEmailGUI3
+
+Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS platformon egyaránt fut.
+
+> [English version](README.md)
+
+## Inspiráció
+
+Ez a projekt [Sven-Bo/create-distribute-excel-files](https://github.com/Sven-Bo/create-distribute-excel-files) repón és a kapcsolódó [YouTube-videón](https://www.youtube.com/watch?v=RGR048I5ZDE) alapul.
+
+## Funkciók
+
+- Excel-fájlból olvassa ki a címzetteket (név, email, CC, mellékletek)
+- WYSIWYG HTML szerkesztő:
+  - Félkövér, dőlt, aláhúzás
+  - Betűtípus, betűméret (8–36 pt), betűszín
+  - Bekezdés-igazítás (balra, középre, jobbra)
+  - Beágyazott szerkeszthető táblázatok
+- Menüsor billentyűparancsokkal (Cmd/Ctrl + S/O/B/I/U/Return)
+- Magyar és angol felhasználói felület (menüből váltható)
+- Beállítások mentése/betöltése JSON fájlba
+- Generálás folyamatban leállítható
+
+## Rendszerkövetelmények
+
+| Platform | Követelmény |
+|----------|-------------|
+| Windows  | Python 3.x, Microsoft Outlook, `pywin32`, `openpyxl` |
+| macOS    | Python 3.x, Microsoft Outlook for Mac, `openpyxl` |
+
+## Telepítés
+
+```bash
+pip install openpyxl
+# Windows esetén:
+pip install pywin32
+```
+
+## Indítás
+
+```bash
+python3 main.py
+```
+
+## Excel-fájl formátuma
+
+Az első sor fejléc (nem kerül feldolgozásra). A következő oszlopok szükségesek:
+
+| Oszlop | Tartalom |
+|--------|----------|
+| A | Melléklet fájlnév(ek), pontosvesszővel elválasztva (pl. `dok1.pdf;dok2.xlsx`) |
+| B | Címzett neve |
+| C | Címzett email-címe |
+| D | CC email-cím (elhagyható) |
+
+## Beállítások
+
+Az alkalmazás indításkor automatikusan betölti a `settings.json` fájlt (ha létezik). A Fájl menüből más fájl is megnyitható vagy menthető.
+
+## Fájlstruktúra
+
+```
+main.py              # Belépési pont
+gui.py               # Felhasználói felület, WYSIWYG szerkesztő
+email_generation.py  # Email-generálás (Windows: COM, macOS: AppleScript)
+settings.py          # Beállítások mentése/betöltése
+i18n.py              # Fordítások (magyar / angol)
+```
+
+## Build (önálló futtatható program)
+
+A build az adott platformon futtatandó — cross-compile nem lehetséges.
+
+### Előfeltételek
+
+```bash
+pip install pyinstaller openpyxl
+# Windows esetén még:
+pip install pywin32
+```
+
+### Build
+
+```bash
+pyinstaller SendEmailGUI3.spec
+```
+
+### Kimenet
+
+| Platform | Fájl |
+|----------|------|
+| Windows  | `dist\SendEmailGUI3.exe` |
+| macOS    | `dist/SendEmailGUI3.app` |
+
+A beállítások fájlja (`settings.json`) az apphoz tartozó felhasználói mappában jön létre:
+- **Windows**: `%APPDATA%\SendEmailGUI3\settings.json`
+- **macOS**: `~/Library/Application Support/SendEmailGUI3/settings.json`
