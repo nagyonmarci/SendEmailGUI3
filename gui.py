@@ -3,6 +3,7 @@ import sys
 import subprocess
 import tkinter as tk
 import tkinter.font as tkfont
+import tkinter.messagebox as messagebox
 from tkinter import colorchooser, filedialog, VERTICAL
 from tkinter import ttk
 import threading
@@ -451,10 +452,16 @@ def insert_table(html_body_text):
     dialog.bind("<Return>", lambda e: on_ok())
 
 
-def start_email_generation_thread(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text):
+def start_email_generation_thread(root, table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text):
+    def on_done(missing_files):
+        if missing_files:
+            msg = i18n.t("warn_missing_files") + "\n\n" + "\n".join(missing_files)
+            root.after(0, lambda: messagebox.showwarning(i18n.t("warn_missing_title"), msg))
+
     threading.Thread(
         target=email_generation.generate_emails,
         args=(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text),
+        kwargs={"on_done": on_done},
         daemon=True,
     ).start()
 
@@ -537,7 +544,7 @@ def create_gui():
         settings.reset_settings_to_default(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
 
     def generate_cmd():
-        start_email_generation_thread(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
+        start_email_generation_thread(root, table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
 
     def _build_menubar():
         if _menubar[0] is not None:

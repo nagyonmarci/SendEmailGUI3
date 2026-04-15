@@ -37,8 +37,10 @@ STRINGS = {
         "dlg_insert":         "Beszúrás",
         "fdlg_excel":         "Válassza ki az Excel fájlt",
         "fdlg_attachments":   "Válassza ki a mellékletek mappáját",
-        "fdlg_settings_open": "Válassza ki a beállítások fájlt",
-        "fdlg_settings_save": "Mentés másként",
+        "fdlg_settings_open":  "Válassza ki a beállítások fájlt",
+        "fdlg_settings_save":  "Mentés másként",
+        "warn_missing_title":  "Hiányzó mellékletek",
+        "warn_missing_files":  "A következő melléklet-fájlok nem találhatók:",
     },
     "en": {
         "window_title":       "Bulk Email Sender",
@@ -76,8 +78,10 @@ STRINGS = {
         "dlg_insert":         "Insert",
         "fdlg_excel":         "Select Excel file",
         "fdlg_attachments":   "Select attachments folder",
-        "fdlg_settings_open": "Select settings file",
-        "fdlg_settings_save": "Save As",
+        "fdlg_settings_open":  "Select settings file",
+        "fdlg_settings_save":  "Save As",
+        "warn_missing_title":  "Missing attachments",
+        "warn_missing_files":  "The following attachment files could not be found:",
     },
 }
 

@@ -97,10 +97,20 @@ def stop_email_generation():
     stop_generation = True
 
 
-def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text):
+def _resolve_attachment(attachment_dir_path, raw_name):
+    """Strip whitespace and surrounding quotes, then build + normalise the path."""
+    name = raw_name.strip().strip('"\'')
+    if not name:
+        return None
+    return os.path.normpath(os.path.join(attachment_dir_path, name))
+
+
+def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_entry,
+                    html_body_text, on_done=None):
     if IS_WINDOWS:
         pythoncom.CoInitialize()
     workbook = None
+    missing_files = []
     try:
         global stop_generation, generation_in_progress
         generation_in_progress = True
@@ -109,6 +119,8 @@ def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_en
 
         if IS_WINDOWS:
             outlook = win32.Dispatch('outlook.application')
+
+        att_dir = attachment_dir.get()
 
         for i in range(2, sheet.max_row + 1):
             if stop_generation:
@@ -138,19 +150,25 @@ def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_en
                     mail.Subject = subject
                     current_body = mail.HTMLBody
                     mail.HTMLBody = DEFAULT_HTML_BODY_FIRST + html_content + DEFAULT_HTML_BODY_LAST + current_body
-                    for attachment in attachments_raw:
-                        if attachment:
-                            attachment_path = os.path.join(attachment_dir.get(), attachment.strip())
-                            if os.path.exists(attachment_path):
-                                mail.Attachments.Add(attachment_path)
+                    for raw in attachments_raw:
+                        path = _resolve_attachment(att_dir, raw)
+                        if path is None:
+                            continue
+                        if os.path.exists(path):
+                            mail.Attachments.Add(path)
+                        else:
+                            missing_files.append(f"sor {i}: {os.path.basename(path)}")
                     mail.Display()
                 else:
                     full_attachments = []
-                    for attachment in attachments_raw:
-                        if attachment:
-                            attachment_path = os.path.join(attachment_dir.get(), attachment.strip())
-                            if os.path.exists(attachment_path):
-                                full_attachments.append(attachment_path)
+                    for raw in attachments_raw:
+                        path = _resolve_attachment(att_dir, raw)
+                        if path is None:
+                            continue
+                        if os.path.exists(path):
+                            full_attachments.append(path)
+                        else:
+                            missing_files.append(f"sor {i}: {os.path.basename(path)}")
                     _create_email_mac(recipient_name, recipient_email, cc_email,
                                       subject, html_content, full_attachments)
             except Exception as e:
@@ -165,3 +183,5 @@ def generate_emails(table_filename, attachment_dir, sheet_name_entry, subject_en
             workbook.close()
         generation_in_progress = False
         stop_generation = False
+        if on_done:
+            on_done(missing_files)
