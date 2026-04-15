@@ -1,5 +1,7 @@
 # SendEmailGUI3
 
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
+
 Bulk email sender application for Microsoft Outlook — runs on both Windows and macOS.
 
 > [Magyar verzió](README.hu.md)
@@ -11,6 +13,7 @@ This project was inspired by [Sven-Bo/create-distribute-excel-files](https://git
 ## Features
 
 - Reads recipients from an Excel file (name, email, CC, attachments)
+- Sheet names auto-loaded from the selected Excel file (dropdown selector)
 - WYSIWYG HTML editor:
   - Bold, italic, underline
   - Font family, font size (8–36 pt), font color
@@ -18,7 +21,7 @@ This project was inspired by [Sven-Bo/create-distribute-excel-files](https://git
   - Embedded editable tables
 - Menu bar with keyboard shortcuts (Cmd/Ctrl + S/O/B/I/U/Return)
 - Hungarian and English UI (switchable from the menu)
-- Save/load settings to/from a JSON file
+- Settings saved automatically on close and restored on next launch
 - Generation can be stopped mid-run
 
 ## Requirements
@@ -55,7 +58,7 @@ The first row is a header (skipped). The following columns are required:
 
 ## Settings
 
-On startup the app automatically loads `settings.json` if it exists. A different file can be opened or saved from the File menu.
+On startup the app automatically restores the last-used settings. A different settings file can be opened or saved from the File menu.
 
 ## File structure
 
@@ -65,6 +68,7 @@ gui.py               # UI and WYSIWYG editor
 email_generation.py  # Email generation (Windows: COM, macOS: AppleScript)
 settings.py          # Save/load settings
 i18n.py              # Translations (Hungarian / English)
+version.py           # Version number
 ```
 
 ## Build (standalone executable)

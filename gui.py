@@ -7,9 +7,11 @@ import tkinter.messagebox as messagebox
 from tkinter import colorchooser, filedialog, VERTICAL
 from tkinter import ttk
 import threading
+import openpyxl
 import i18n
 import settings
 import email_generation
+from version import __version__
 
 IS_MAC = sys.platform == 'darwin'
 
@@ -466,6 +468,20 @@ def start_email_generation_thread(root, table_filename, attachment_dir, sheet_na
     ).start()
 
 
+def _load_sheets(path):
+    """Populate the sheet-name combobox from the given Excel file."""
+    try:
+        wb = openpyxl.load_workbook(path, read_only=True)
+        names = wb.sheetnames
+        wb.close()
+    except Exception:
+        names = []
+    sheet_name_entry['values'] = names
+    current = sheet_name_entry.get()
+    if names and current not in names:
+        sheet_name_entry.set(names[0])
+
+
 def select_excel_file():
     if IS_MAC:
         r = subprocess.run(
@@ -481,6 +497,7 @@ def select_excel_file():
         )
     if filepath:
         table_filename.set(filepath)
+        _load_sheets(filepath)
 
 
 def select_attachment_dir():
@@ -537,6 +554,7 @@ def create_gui():
         data = settings.load_settings_gui()
         if data is not None:
             settings.apply_settings(data, table_filename, attachment_dir, sheet_name_entry, subject_entry, html_body_text)
+            _load_sheets(table_filename.get())
             apply_language(i18n.get_lang())
             status_var.set(settings.current_settings_file)
 
@@ -589,7 +607,7 @@ def create_gui():
 
     def apply_language(lang):
         i18n.set_lang(lang)
-        root.title(i18n.t("window_title"))
+        root.title(f"{i18n.t('window_title')} v{__version__}")
         for key, widget in _w.items():
             widget.config(text=i18n.t(key))
         for btn in _browse_btns:
@@ -622,7 +640,13 @@ def create_gui():
 
     _field_row(fields_lf, 0, "label_excel",      var=table_filename, browse_cmd=select_excel_file)
     _field_row(fields_lf, 1, "label_attachments", var=attachment_dir, browse_cmd=select_attachment_dir)
-    sheet_name_entry = _field_row(fields_lf, 2, "label_sheet")
+
+    lbl_sheet = ttk.Label(fields_lf, text=i18n.t("label_sheet"))
+    lbl_sheet.grid(row=2, column=0, sticky="w", padx=(0, 10), pady=4)
+    _w["label_sheet"] = lbl_sheet
+    sheet_name_entry = ttk.Combobox(fields_lf, state="readonly", font=("Verdana", 10))
+    sheet_name_entry.grid(row=2, column=1, sticky="ew", pady=4)
+
     subject_entry    = _field_row(fields_lf, 3, "label_subject")
 
     # ── Editor section ────────────────────────────────────────────────────
@@ -757,6 +781,7 @@ def create_gui():
     initial = settings.load_settings()
     settings.apply_settings(initial, table_filename, attachment_dir,
                             sheet_name_entry, subject_entry, html_body_text)
+    _load_sheets(table_filename.get())
     apply_language(i18n.get_lang())
 
     def on_close():

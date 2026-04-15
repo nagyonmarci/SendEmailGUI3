@@ -1,5 +1,7 @@
 # SendEmailGUI3
 
+![Verzió](https://img.shields.io/badge/verzió-1.0.0-blue)
+
 Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS platformon egyaránt fut.
 
 > [English version](README.md)
@@ -11,6 +13,7 @@ Ez a projekt [Sven-Bo/create-distribute-excel-files](https://github.com/Sven-Bo/
 ## Funkciók
 
 - Excel-fájlból olvassa ki a címzetteket (név, email, CC, mellékletek)
+- A munkalapok nevei automatikusan beolvasódnak a kiválasztott Excel-fájlból (legördülő lista)
 - WYSIWYG HTML szerkesztő:
   - Félkövér, dőlt, aláhúzás
   - Betűtípus, betűméret (8–36 pt), betűszín
@@ -18,7 +21,7 @@ Ez a projekt [Sven-Bo/create-distribute-excel-files](https://github.com/Sven-Bo/
   - Beágyazott szerkeszthető táblázatok
 - Menüsor billentyűparancsokkal (Cmd/Ctrl + S/O/B/I/U/Return)
 - Magyar és angol felhasználói felület (menüből váltható)
-- Beállítások mentése/betöltése JSON fájlba
+- Bezáráskor automatikusan menti, újraindításkor visszaállítja a beállításokat
 - Generálás folyamatban leállítható
 
 ## Rendszerkövetelmények
@@ -55,7 +58,7 @@ Az első sor fejléc (nem kerül feldolgozásra). A következő oszlopok szüks�
 
 ## Beállítások
 
-Az alkalmazás indításkor automatikusan betölti a `settings.json` fájlt (ha létezik). A Fájl menüből más fájl is megnyitható vagy menthető.
+Az alkalmazás indításkor automatikusan visszaállítja az utolsó mentett beállításokat. A Fájl menüből más fájl is megnyitható vagy menthető.
 
 ## Fájlstruktúra
 
@@ -65,6 +68,7 @@ gui.py               # Felhasználói felület, WYSIWYG szerkesztő
 email_generation.py  # Email-generálás (Windows: COM, macOS: AppleScript)
 settings.py          # Beállítások mentése/betöltése
 i18n.py              # Fordítások (magyar / angol)
+version.py           # Verziószám
 ```
 
 ## Build (önálló futtatható program)
