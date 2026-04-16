@@ -3,6 +3,8 @@
 [![Version](https://img.shields.io/badge/version-1.0.1-blue)](../../releases)
 [![License](https://img.shields.io/badge/license-Unlicense-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)](#download)
+[![Security Scan](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/security.yml/badge.svg)](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/security.yml)
+[![Release](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/release.yml/badge.svg)](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/release.yml)
 
 Bulk email sender application for Microsoft Outlook — runs on both Windows and macOS.
 
@@ -198,3 +200,54 @@ pyinstaller SendEmailGUI3.spec
 The settings file (`settings.json`) is stored in the user data directory:
 - **Windows**: `%APPDATA%\SendEmailGUI3\settings.json`
 - **macOS**: `~/Library/Application Support/SendEmailGUI3/settings.json`
+
+## CI/CD Pipeline
+
+Two GitHub Actions workflows automate security checks and cross-platform releases.
+
+### Security Scan ([`security.yml`](.github/workflows/security.yml))
+
+Runs on every push and pull request to any branch.
+
+| Step | Tool | What it checks |
+|------|------|----------------|
+| CVE audit | `pip-audit` | Known vulnerabilities in Python dependencies |
+| SAST scan | `bandit` (medium+ severity) | Security issues in the source code |
+
+### Release Pipeline ([`release.yml`](.github/workflows/release.yml))
+
+Triggered by pushing a version tag (e.g. `git tag v1.0.2 && git push --tags`).
+
+```
+tag push (v*)
+      │
+      ▼
+┌─────────────────────────┐
+│     Security gate       │  ubuntu-latest
+│  • tag == VERSION file  │
+│  • pip-audit            │
+│  • bandit               │
+└────────────┬────────────┘
+             │ needs: security
+   ┌─────────┼──────────────┐
+   ▼         ▼              ▼
+macOS      Win x64       Win ARM64
+build       build          build
+   └─────────┼──────────────┘
+             │ needs: all builds
+             ▼
+     ┌────────────────┐
+     │ GitHub Release │  ubuntu-latest
+     │  (3 artifacts) │
+     └────────────────┘
+```
+
+Each build job runs natively on its target platform:
+
+| Job | Runner | Artifact |
+|-----|--------|----------|
+| macOS build | `macos-latest` | `SendEmailGUI3-mac.zip` (`.app` + installer script) |
+| Windows x64 build | `windows-latest` | `SendEmailGUI3-win-x64.exe` |
+| Windows ARM64 build | `windows-11-arm` | `SendEmailGUI3-win-arm64.exe` |
+
+All three artifacts are automatically attached to the GitHub Release.

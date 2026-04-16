@@ -3,6 +3,8 @@
 [![Verzió](https://img.shields.io/badge/verzió-1.0.1-blue)](../../releases)
 [![Licenc](https://img.shields.io/badge/licenc-Unlicense-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)](#letöltés)
+[![Security Scan](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/security.yml/badge.svg)](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/security.yml)
+[![Release](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/release.yml/badge.svg)](https://github.com/nagyonmarci/SendEmailGUI3/actions/workflows/release.yml)
 
 Tömeges emailküldő alkalmazás Microsoft Outlookhoz — Windows és macOS platformon egyaránt fut.
 
@@ -198,3 +200,54 @@ pyinstaller SendEmailGUI3.spec
 A beállítások fájlja (`settings.json`) az apphoz tartozó felhasználói mappában jön létre:
 - **Windows**: `%APPDATA%\SendEmailGUI3\settings.json`
 - **macOS**: `~/Library/Application Support/SendEmailGUI3/settings.json`
+
+## CI/CD Pipeline
+
+A projekt két GitHub Actions workflow-val automatizálja a biztonsági ellenőrzéseket és a keresztplatformos kiadásokat.
+
+### Security Scan ([`security.yml`](.github/workflows/security.yml))
+
+Minden push és pull request esetén lefut, bármely branch-en.
+
+| Lépés | Eszköz | Mit ellenőriz |
+|-------|--------|---------------|
+| CVE-audit | `pip-audit` | Ismert sebezhetőségek a Python-függőségekben |
+| SAST-scan | `bandit` (medium+ súlyosság) | Biztonsági problémák a forráskódban |
+
+### Release Pipeline ([`release.yml`](.github/workflows/release.yml))
+
+Verziótag pusholásával indul el (pl. `git tag v1.0.2 && git push --tags`).
+
+```
+tag push (v*)
+      │
+      ▼
+┌─────────────────────────┐
+│     Security gate       │  ubuntu-latest
+│  • tag == VERSION fájl  │
+│  • pip-audit            │
+│  • bandit               │
+└────────────┬────────────┘
+             │ needs: security
+   ┌─────────┼──────────────┐
+   ▼         ▼              ▼
+macOS      Win x64       Win ARM64
+build       build          build
+   └─────────┼──────────────┘
+             │ needs: all builds
+             ▼
+     ┌────────────────┐
+     │ GitHub Release │  ubuntu-latest
+     │  (3 artifact)  │
+     └────────────────┘
+```
+
+Minden build-job natívan fut a saját célplatformján:
+
+| Job | Runner | Artifact |
+|-----|--------|----------|
+| macOS build | `macos-latest` | `SendEmailGUI3-mac.zip` (`.app` + telepítőscript) |
+| Windows x64 build | `windows-latest` | `SendEmailGUI3-win-x64.exe` |
+| Windows ARM64 build | `windows-11-arm` | `SendEmailGUI3-win-arm64.exe` |
+
+Mindhárom artifact automatikusan csatolódik a GitHub Release-hez.
